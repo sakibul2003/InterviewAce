@@ -2,22 +2,18 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-// =========================
-// Register User
-// =========================
 const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validate input
+    
     if (!name || !email || !password) {
       return res.status(400).json({
         message: "Please fill all fields",
       });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
+     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
       return res.status(400).json({
@@ -25,10 +21,9 @@ const registerUser = async (req, res) => {
       });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    
     const user = await User.create({
       name,
       email,
@@ -41,6 +36,7 @@ const registerUser = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (error) {
@@ -52,21 +48,17 @@ const registerUser = async (req, res) => {
   }
 };
 
-// =========================
-// Login User
-// =========================
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate input
     if (!email || !password) {
       return res.status(400).json({
         message: "Please provide email and password",
       });
     }
 
-    // Find user
+    
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -75,7 +67,7 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // Compare password
+    
     const isPasswordCorrect = await bcrypt.compare(
       password,
       user.password
@@ -87,7 +79,7 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // Generate JWT
+    
     const token = jwt.sign(
       {
         id: user._id,
@@ -105,6 +97,7 @@ const loginUser = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (error) {

@@ -1,0 +1,301 @@
+/* ===================================
+   Dark Mode
+=================================== */
+
+body.dark-mode {
+  background-color: #121212;
+  color: #f1f1f1;
+}
+
+body.dark-mode .text-muted {
+  color: #adb5bd !important;
+}
+
+body.dark-mode .text-secondary {
+  color: #ced4da !important;
+}
+
+body.dark-mode .card {
+  background-color: #1e1e1e;
+  color: #f1f1f1;
+}
+
+body.dark-mode .bg-light {
+  background-color: #2a2a2a !important;
+  color: #f1f1f1 !important;
+}
+
+body.dark-mode .border {
+  border-color: #444 !important;
+}
+
+body.dark-mode .form-control,
+body.dark-mode .form-select {
+  background-color: #242424;
+  color: #f1f1f1;
+  border-color: #555;
+}
+
+body.dark-mode .form-control::placeholder {
+  color: #999;
+}
+
+body.dark-mode .form-control:focus,
+body.dark-mode .form-select:focus {
+  background-color: #242424;
+  color: #fff;
+  border-color: #6ea8fe;
+}
+
+body.dark-mode .alert-light {
+  background-color: #2a2a2a;
+  color: #f1f1f1;
+  border-color: #444;
+}
+
+body.dark-mode .table {
+  color: #f1f1f1;
+}
+
+body.dark-mode .text-dark {
+  color: #f1f1f1 !important;
+}
+
+/* ===================================
+   InterviewAce Global Styles
+=================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f5f7fb;
+  color: #212529;
+}
+
+a {
+  text-decoration: none;
+}
+
+/* ===================================
+   Navbar
+=================================== */
+
+.navbar {
+  min-height: 68px;
+}
+
+.navbar-brand {
+  letter-spacing: 0.3px;
+}
+
+.nav-link {
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  transform: translateY(-1px);
+}
+
+/* ===================================
+   Cards
+=================================== */
+
+.card {
+  border-radius: 14px;
+  border: none;
+  overflow: hidden;
+}
+
+.card.shadow,
+.card.shadow-sm,
+.card.shadow-lg {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card.shadow:hover,
+.card.shadow-sm:hover {
+  transform: translateY(-3px);
+}
+
+/* ===================================
+   Buttons
+=================================== */
+
+.btn {
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+/* ===================================
+   Forms
+=================================== */
+
+.form-control,
+.form-select {
+  border-radius: 8px;
+  min-height: 44px;
+}
+
+/* ===================================
+   Typography
+=================================== */
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  font-weight: 600;
+}
+
+/* ===================================
+   Alerts
+=================================== */
+
+.alert {
+  border-radius: 10px;
+}
+
+/* ===================================
+   Responsive: Tablets
+=================================== */
+
+@media (max-width: 992px) {
+  .container {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .display-3 {
+    font-size: 3rem;
+  }
+
+  .display-4 {
+    font-size: 2.6rem;
+  }
+}
+
+/* ===================================
+   Responsive: Mobile
+=================================== */
+
+@media (max-width: 768px) {
+  .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* Navbar */
+  .navbar {
+    min-height: 64px;
+  }
+
+  .navbar-brand {
+    font-size: 1.1rem !important;
+  }
+
+  .navbar-nav {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .navbar-nav .nav-link {
+    padding: 10px 4px;
+  }
+
+  /* Headings */
+  h1 {
+    font-size: 2rem;
+  }
+
+  h2 {
+    font-size: 1.6rem;
+  }
+
+  h3 {
+    font-size: 1.35rem;
+  }
+
+  /* Hero text */
+  .display-3 {
+    font-size: 2.4rem;
+  }
+
+  .display-4 {
+    font-size: 2.1rem;
+  }
+
+  /* Buttons */
+  .btn-lg {
+    width: 100%;
+  }
+
+  /* Cards */
+  .card-body {
+    padding: 1.25rem !important;
+  }
+
+  /* Action buttons */
+  .d-flex.flex-sm-row {
+    flex-direction: column !important;
+  }
+
+  .d-flex.flex-sm-row .btn {
+    width: 100%;
+  }
+
+  /* Questions */
+  .question-actions {
+    flex-direction: column;
+  }
+
+  /* Profile/Admin large avatar */
+  .profile-avatar {
+    width: 90px !important;
+    height: 90px !important;
+    font-size: 36px !important;
+  }
+}
+
+/* ===================================
+   Responsive: Small Phones
+=================================== */
+
+@media (max-width: 576px) {
+  body {
+    font-size: 0.95rem;
+  }
+
+  .container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .card {
+    border-radius: 12px;
+  }
+
+  .display-3 {
+    font-size: 2rem;
+  }
+
+  .display-4 {
+    font-size: 1.8rem;
+  }
+
+  .fs-5 {
+    font-size: 1rem !important;
+  }
+
+  .table-responsive {
+    font-size: 0.9rem;
+  }
+}
