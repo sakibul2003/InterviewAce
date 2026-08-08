@@ -10,6 +10,11 @@ function EditQuestion() {
   const [answer, setAnswer] = useState("");
   const [category, setCategory] = useState("DSA");
   const [difficulty, setDifficulty] = useState("Easy");
+
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
@@ -23,23 +28,75 @@ function EditQuestion() {
   const fetchQuestion = async () => {
     try {
       setFetching(true);
+      setServerError("");
 
       const res = await API.get(`/questions/${id}`);
 
       const question = res.data.question;
 
-      setTitle(question.title);
-      setAnswer(question.answer);
-      setCategory(question.category);
-      setDifficulty(question.difficulty);
-    } catch (error) {
-      console.error("FETCH ERROR:", error);
+      if (!question) {
+        setServerError("Question not found.");
+        return;
+      }
 
-      alert("Failed to load question.");
-      navigate("/questions");
+      setTitle(question.title || "");
+      setAnswer(question.answer || "");
+      setCategory(question.category || "DSA");
+      setDifficulty(question.difficulty || "Easy");
+    } catch (error) {
+      console.error("Fetch Question Error:", error);
+
+      if (error.response) {
+        if (error.response.status === 404) {
+          setServerError("The requested question was not found.");
+        } else if (error.response.status === 401) {
+          setServerError(
+            "Your session has expired. Please login again."
+          );
+        } else {
+          setServerError(
+            error.response.data?.message ||
+              "Failed to load question."
+          );
+        }
+      } else if (error.request) {
+        setServerError(
+          "Unable to connect to the server. Please make sure the backend is running."
+        );
+      } else {
+        setServerError(
+          "Something went wrong while loading the question."
+        );
+      }
     } finally {
       setFetching(false);
     }
+  };
+
+  // ===============================
+  // Validate Form
+  // ===============================
+  const validateForm = () => {
+    const newErrors = {};
+
+    const trimmedTitle = title.trim();
+    const trimmedAnswer = answer.trim();
+
+    if (!trimmedTitle) {
+      newErrors.title = "Question title is required.";
+    } else if (trimmedTitle.length < 5) {
+      newErrors.title =
+        "Question title must contain at least 5 characters.";
+    }
+
+    if (!trimmedAnswer) {
+      newErrors.answer = "Answer is required.";
+    } else if (trimmedAnswer.length < 10) {
+      newErrors.answer =
+        "Answer must contain at least 10 characters.";
+    }
+
+    return newErrors;
   };
 
   // ===============================
@@ -48,32 +105,70 @@ function EditQuestion() {
   const updateQuestion = async (e) => {
     e.preventDefault();
 
+    setServerError("");
+    setSuccessMessage("");
+
+    const validationErrors = validateForm();
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await API.put(`/questions/${id}`, {
-        title,
-        answer,
+        title: title.trim(),
+        answer: answer.trim(),
         category,
         difficulty,
       });
 
       console.log(res.data);
 
-      alert("✅ Question Updated Successfully");
+      setErrors({});
 
-      navigate("/questions");
+      setSuccessMessage(
+        res.data?.message ||
+          "Question updated successfully."
+      );
+
+      // Small delay so success message can be seen
+      setTimeout(() => {
+        navigate("/questions");
+      }, 700);
     } catch (error) {
-      console.error("UPDATE ERROR:", error);
+      console.error("Update Question Error:", error);
 
       if (error.response) {
-        alert(
-          `Error ${error.response.status}\n${
-            error.response.data.message || "Failed to update question"
-          }`
+        if (error.response.status === 401) {
+          setServerError(
+            "Your session has expired. Please login again."
+          );
+        } else if (error.response.status === 400) {
+          setServerError(
+            error.response.data?.message ||
+              "Please check the question information."
+          );
+        } else if (error.response.status === 404) {
+          setServerError(
+            "The question could not be found."
+          );
+        } else {
+          setServerError(
+            error.response.data?.message ||
+              "Failed to update question."
+          );
+        }
+      } else if (error.request) {
+        setServerError(
+          "Unable to connect to the server. Please make sure the backend is running."
         );
       } else {
-        alert(error.message);
+        setServerError(
+          "Something went wrong. Please try again."
+        );
       }
     } finally {
       setLoading(false);
@@ -145,7 +240,32 @@ function EditQuestion() {
 
           <div className="card-body p-4 p-md-5">
 
-            <form onSubmit={updateQuestion}>
+            {/* Server Error */}
+
+            {serverError && (
+              <div
+                className="alert alert-danger"
+                role="alert"
+              >
+                ❌ {serverError}
+              </div>
+            )}
+
+            {/* Success */}
+
+            {successMessage && (
+              <div
+                className="alert alert-success"
+                role="alert"
+              >
+                ✅ {successMessage}
+              </div>
+            )}
+
+            <form
+              onSubmit={updateQuestion}
+              noValidate
+            >
 
               {/* Question */}
 
@@ -161,14 +281,26 @@ function EditQuestion() {
                 <input
                   id="title"
                   type="text"
-                  className="form-control"
+                  className={`form-control ${
+                    errors.title ? "is-invalid" : ""
+                  }`}
                   value={title}
-                  onChange={(e) =>
-                    setTitle(e.target.value)
-                  }
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setErrors({
+                      ...errors,
+                      title: "",
+                    });
+                    setServerError("");
+                  }}
                   placeholder="Enter the interview question..."
-                  required
                 />
+
+                {errors.title && (
+                  <div className="invalid-feedback">
+                    {errors.title}
+                  </div>
+                )}
 
               </div>
 
@@ -185,15 +317,27 @@ function EditQuestion() {
 
                 <textarea
                   id="answer"
-                  className="form-control"
+                  className={`form-control ${
+                    errors.answer ? "is-invalid" : ""
+                  }`}
                   rows="6"
                   value={answer}
-                  onChange={(e) =>
-                    setAnswer(e.target.value)
-                  }
-                  placeholder="Write the answer..."
-                  required
+                  onChange={(e) => {
+                    setAnswer(e.target.value);
+                    setErrors({
+                      ...errors,
+                      answer: "",
+                    });
+                    setServerError("");
+                  }}
+                  placeholder="Write a clear interview-friendly answer..."
                 />
+
+                {errors.answer && (
+                  <div className="invalid-feedback">
+                    {errors.answer}
+                  </div>
+                )}
 
               </div>
 
@@ -214,9 +358,10 @@ function EditQuestion() {
                     id="category"
                     className="form-select"
                     value={category}
-                    onChange={(e) =>
-                      setCategory(e.target.value)
-                    }
+                    onChange={(e) => {
+                      setCategory(e.target.value);
+                      setServerError("");
+                    }}
                   >
                     <option value="DSA">DSA</option>
                     <option value="DBMS">DBMS</option>
@@ -241,9 +386,10 @@ function EditQuestion() {
                     id="difficulty"
                     className="form-select"
                     value={difficulty}
-                    onChange={(e) =>
-                      setDifficulty(e.target.value)
-                    }
+                    onChange={(e) => {
+                      setDifficulty(e.target.value);
+                      setServerError("");
+                    }}
                   >
                     <option value="Easy">Easy</option>
                     <option value="Medium">Medium</option>

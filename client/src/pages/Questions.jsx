@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import API from "../services/api";
@@ -8,7 +9,27 @@ function Questions() {
   const [category, setCategory] = useState("All");
   const [difficulty, setDifficulty] = useState("All");
   const [bookmarks, setBookmarks] = useState([]);
+  const [completedQuestions, setCompletedQuestions] = useState([]);
 
+  // ===============================
+  // Logged-in User
+  // ===============================
+  const storedUser = localStorage.getItem("user");
+
+  let user = null;
+
+  try {
+    user = storedUser ? JSON.parse(storedUser) : null;
+  } catch (error) {
+    console.error("Invalid user data:", error);
+    user = null;
+  }
+
+  const isAdmin = user?.role === "admin";
+
+  // ===============================
+  // Initial Load
+  // ===============================
   useEffect(() => {
     fetchQuestions();
 
@@ -16,22 +37,109 @@ function Questions() {
       JSON.parse(localStorage.getItem("bookmarks")) || [];
 
     setBookmarks(savedBookmarks);
+
+    fetchCompletedQuestions();
   }, []);
 
+  // ===============================
+  // Fetch All Questions
+  // ===============================
   const fetchQuestions = async () => {
     try {
       const res = await API.get("/questions");
+
       setQuestions(res.data.questions || []);
     } catch (error) {
-      console.error(error);
-      alert("Failed to load questions");
+      console.error("Fetch Questions Error:", error);
+      alert("Failed to load questions.");
     }
   };
 
   // ===============================
-  // Delete Question
+  // Fetch Completed Questions
+  // ===============================
+  const fetchCompletedQuestions = async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      setCompletedQuestions([]);
+      return;
+    }
+
+    try {
+      const res = await API.get("/users/profile");
+
+      const completed =
+        res.data.user?.completedQuestions || [];
+
+      setCompletedQuestions(
+        completed.map((id) => id.toString())
+      );
+    } catch (error) {
+      console.error(
+        "Fetch Completed Questions Error:",
+        error
+      );
+
+      setCompletedQuestions([]);
+    }
+  };
+
+  // ===============================
+  // Toggle Completed Question
+  // ===============================
+  const toggleCompletedQuestion = async (id) => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      alert("Please login to track your progress.");
+      return;
+    }
+
+    try {
+      const res = await API.put(
+        "/users/completed-question",
+        {
+          questionId: id,
+        }
+      );
+
+      if (res.data.success) {
+        const updatedCompleted =
+          res.data.completedQuestions || [];
+
+        setCompletedQuestions(
+          updatedCompleted.map((item) =>
+            item.toString()
+          )
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Completed Question Error:",
+        error
+      );
+
+      if (error.response?.status === 401) {
+        alert("Please login to track your progress.");
+      } else {
+        alert(
+          error.response?.data?.message ||
+            "Failed to update question progress."
+        );
+      }
+    }
+  };
+
+  // ===============================
+  // Delete Question - Admin Only
   // ===============================
   const deleteQuestion = async (id) => {
+    if (!isAdmin) {
+      alert("Admin access required.");
+      return;
+    }
+
     const confirmDelete = window.confirm(
       "Are you sure you want to delete this question?"
     );
@@ -41,18 +149,21 @@ function Questions() {
     }
 
     try {
-      const res = await API.delete(`/questions/${id}`);
+      const res = await API.delete(
+        "/questions/" + id
+      );
 
       if (res.data.success) {
+        // Remove from questions
         setQuestions((prevQuestions) =>
           prevQuestions.filter(
             (question) => question._id !== id
           )
         );
 
-        const updatedBookmarks = bookmarks.filter(
-          (item) => item !== id
-        );
+        // Remove from bookmarks
+        const updatedBookmarks =
+          bookmarks.filter((item) => item !== id);
 
         setBookmarks(updatedBookmarks);
 
@@ -61,15 +172,28 @@ function Questions() {
           JSON.stringify(updatedBookmarks)
         );
 
-        alert("Question Deleted Successfully");
+        // Remove from completed questions
+        setCompletedQuestions((prev) =>
+          prev.filter((item) => item !== id)
+        );
+
+        alert("Question deleted successfully.");
       }
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Delete Question Error:",
+        error
+      );
 
       if (error.response?.status === 401) {
-        alert("Please login to delete questions.");
+        alert("Please login first.");
+      } else if (error.response?.status === 403) {
+        alert("Admin access required.");
       } else {
-        alert("Failed to delete question");
+        alert(
+          error.response?.data?.message ||
+            "Failed to delete question."
+        );
       }
     }
   };
@@ -84,7 +208,7 @@ function Questions() {
   };
 
   // ===============================
-  // Bookmark
+  // Toggle Bookmark
   // ===============================
   const toggleBookmark = (id) => {
     let updatedBookmarks;
@@ -94,7 +218,10 @@ function Questions() {
         (item) => item !== id
       );
     } else {
-      updatedBookmarks = [...bookmarks, id];
+      updatedBookmarks = [
+        ...bookmarks,
+        id,
+      ];
     }
 
     setBookmarks(updatedBookmarks);
@@ -108,33 +235,39 @@ function Questions() {
   // ===============================
   // Filter Questions
   // ===============================
-  const filteredQuestions = questions.filter((question) => {
-    const matchesSearch = question.title
-      .toLowerCase()
-      .includes(search.toLowerCase());
+  const filteredQuestions = questions.filter(
+    (question) => {
+      const title =
+        question.title?.toLowerCase() || "";
 
-    const matchesCategory =
-      category === "All" ||
-      question.category === category;
+      const matchesSearch =
+        title.includes(search.toLowerCase());
 
-    const matchesDifficulty =
-      difficulty === "All" ||
-      question.difficulty === difficulty;
+      const matchesCategory =
+        category === "All" ||
+        question.category === category;
 
-    return (
-      matchesSearch &&
-      matchesCategory &&
-      matchesDifficulty
-    );
-  });
+      const matchesDifficulty =
+        difficulty === "All" ||
+        question.difficulty === difficulty;
 
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesDifficulty
+      );
+    }
+  );
+
+  // ===============================
+  // UI
+  // ===============================
   return (
     <div className="container mt-5 mb-5">
 
       {/* ===============================
-          Page Header
+          Header
       =============================== */}
-
       <div className="text-center mb-5">
 
         <span className="badge bg-primary-subtle text-primary px-3 py-2 mb-3">
@@ -146,8 +279,8 @@ function Questions() {
         </h1>
 
         <p className="text-muted mb-0">
-          Practice technical and HR questions and build
-          confidence for your next interview.
+          Practice technical and HR questions and
+          build confidence for your next interview.
         </p>
 
       </div>
@@ -155,7 +288,6 @@ function Questions() {
       {/* ===============================
           Search & Filters
       =============================== */}
-
       <div className="card shadow-sm border-0 mb-5">
 
         <div className="card-body p-4">
@@ -163,7 +295,6 @@ function Questions() {
           <div className="row g-3 align-items-end">
 
             {/* Search */}
-
             <div className="col-lg-5">
 
               <label className="form-label fw-semibold">
@@ -183,7 +314,6 @@ function Questions() {
             </div>
 
             {/* Category */}
-
             <div className="col-md-6 col-lg-2">
 
               <label className="form-label fw-semibold">
@@ -197,19 +327,23 @@ function Questions() {
                   setCategory(e.target.value)
                 }
               >
-                <option value="All">All Categories</option>
+
+                <option value="All">
+                  All Categories
+                </option>
+
                 <option value="DSA">DSA</option>
                 <option value="DBMS">DBMS</option>
                 <option value="OOP">OOP</option>
                 <option value="OS">OS</option>
                 <option value="CN">CN</option>
                 <option value="HR">HR</option>
+
               </select>
 
             </div>
 
             {/* Difficulty */}
-
             <div className="col-md-6 col-lg-2">
 
               <label className="form-label fw-semibold">
@@ -223,19 +357,32 @@ function Questions() {
                   setDifficulty(e.target.value)
                 }
               >
-                <option value="All">All Levels</option>
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
+
+                <option value="All">
+                  All Levels
+                </option>
+
+                <option value="Easy">
+                  Easy
+                </option>
+
+                <option value="Medium">
+                  Medium
+                </option>
+
+                <option value="Hard">
+                  Hard
+                </option>
+
               </select>
 
             </div>
 
             {/* Reset */}
-
             <div className="col-lg-3">
 
               <button
+                type="button"
                 className="btn btn-outline-secondary w-100"
                 onClick={resetFilters}
               >
@@ -253,10 +400,10 @@ function Questions() {
       {/* ===============================
           Results Summary
       =============================== */}
-
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4">
 
         <div>
+
           <h5 className="fw-bold mb-1">
             Available Questions
           </h5>
@@ -272,18 +419,26 @@ function Questions() {
             </strong>{" "}
             questions
           </p>
+
         </div>
 
-        <span className="badge bg-dark px-3 py-2 mt-2 mt-md-0">
-          ⭐ {bookmarks.length} Bookmarked
-        </span>
+        <div className="d-flex flex-wrap gap-2 mt-2 mt-md-0">
+
+          <span className="badge bg-dark px-3 py-2">
+            ⭐ {bookmarks.length} Bookmarked
+          </span>
+
+          <span className="badge bg-success px-3 py-2">
+            ✅ {completedQuestions.length} Completed
+          </span>
+
+        </div>
 
       </div>
 
       {/* ===============================
-          Empty State
+          No Questions
       =============================== */}
-
       {filteredQuestions.length === 0 ? (
 
         <div className="card shadow-sm border-0">
@@ -303,6 +458,7 @@ function Questions() {
             </p>
 
             <button
+              type="button"
               className="btn btn-outline-primary"
               onClick={resetFilters}
             >
@@ -316,59 +472,85 @@ function Questions() {
       ) : (
 
         /* ===============================
-           Question Cards
+           Question List
         =============================== */
-
         <div className="row g-4">
 
-          {filteredQuestions.map((question) => (
+          {filteredQuestions.map((question) => {
 
-            <div
-              className="col-12"
-              key={question._id}
-            >
+            const isCompleted =
+              completedQuestions.includes(
+                question._id
+              );
 
-              <div className="card shadow-sm border-0 h-100">
+            const isBookmarked =
+              bookmarks.includes(
+                question._id
+              );
 
-                <div className="card-body p-4">
+            return (
+              <div
+                className="col-12"
+                key={question._id}
+              >
 
-                  {/* Question Header */}
+                <div
+                  className={
+                    "card shadow-sm border-0 h-100 " +
+                    (isCompleted
+                      ? "border border-success"
+                      : "")
+                  }
+                >
 
-                  <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3">
+                  <div className="card-body p-4">
 
-                    <div>
+                    {/* Question Header */}
+                    <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3">
 
-                      <div className="d-flex align-items-center gap-2 mb-2">
+                      <div>
 
-                        <span className="badge bg-light text-dark border">
-                          #{question._id.slice(-4)}
-                        </span>
+                        <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
 
-                        <span className="badge bg-primary">
-                          {question.category}
-                        </span>
+                          <span className="badge bg-light text-dark border">
+                            #
+                            {question._id
+                              ? question._id.slice(-4)
+                              : "----"}
+                          </span>
 
-                        <span
-                          className={`badge ${
-                            question.difficulty === "Easy"
-                              ? "bg-success"
-                              : question.difficulty === "Medium"
-                              ? "bg-warning text-dark"
-                              : "bg-danger"
-                          }`}
-                        >
-                          {question.difficulty}
-                        </span>
+                          <span className="badge bg-primary">
+                            {question.category}
+                          </span>
+
+                          <span
+                            className={
+                              "badge " +
+                              (question.difficulty ===
+                              "Easy"
+                                ? "bg-success"
+                                : question.difficulty ===
+                                  "Medium"
+                                ? "bg-warning text-dark"
+                                : "bg-danger")
+                            }
+                          >
+                            {question.difficulty}
+                          </span>
+
+                          {isCompleted && (
+                            <span className="badge bg-success">
+                              ✅ Completed
+                            </span>
+                          )}
+
+                        </div>
+
+                        <h4 className="fw-bold mb-0">
+                          {question.title}
+                        </h4>
 
                       </div>
-
-                      <h4 className="fw-bold mb-0">
-                        {question.title}
-                      </h4>
-
-                    </div>
-
-                    <div className="text-md-end">
 
                       <small className="text-muted">
                         Interview Question
@@ -376,60 +558,97 @@ function Questions() {
 
                     </div>
 
-                  </div>
+                    <hr />
 
-                  <hr />
+                    {/* Answer */}
+                    <div className="bg-light rounded p-4">
 
-                  {/* Answer */}
+                      <h6 className="fw-bold text-dark mb-2">
+                        💡 Answer
+                      </h6>
 
-                  <div className="bg-light rounded p-4">
+                      <p className="text-secondary mb-0">
+                        {question.answer}
+                      </p>
 
-                    <h6 className="fw-bold text-dark mb-2">
-                      💡 Answer
-                    </h6>
+                    </div>
 
-                    <p className="text-secondary mb-0">
-                      {question.answer}
-                    </p>
+                    {/* ===============================
+                        Actions
+                    =============================== */}
+                    <div className="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mt-4">
 
-                  </div>
+                      {/* User Actions */}
+                      <div className="d-flex flex-column flex-sm-row gap-2">
 
-                  {/* Actions */}
+                        <button
+                          type="button"
+                          className={
+                            "btn " +
+                            (isCompleted
+                              ? "btn-success"
+                              : "btn-outline-success")
+                          }
+                          onClick={() =>
+                            toggleCompletedQuestion(
+                              question._id
+                            )
+                          }
+                        >
+                          {isCompleted
+                            ? "↩️ Mark Incomplete"
+                            : "✅ Mark Complete"}
+                        </button>
 
-                  <div className="question-actions d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mt-4">
+                        <button
+                          type="button"
+                          className={
+                            "btn " +
+                            (isBookmarked
+                              ? "btn-success"
+                              : "btn-outline-primary")
+                          }
+                          onClick={() =>
+                            toggleBookmark(
+                              question._id
+                            )
+                          }
+                        >
+                          {isBookmarked
+                            ? "✅ Bookmarked"
+                            : "⭐ Bookmark"}
+                        </button>
 
-                    <button
-                      className={`btn ${
-                        bookmarks.includes(question._id)
-                          ? "btn-success"
-                          : "btn-outline-primary"
-                      }`}
-                      onClick={() =>
-                        toggleBookmark(question._id)
-                      }
-                    >
-                      {bookmarks.includes(question._id)
-                        ? "✅ Bookmarked"
-                        : "⭐ Bookmark"}
-                    </button>
+                      </div>
 
-                    <div className="d-flex flex-column flex-sm-row gap-2">
+                      {/* Admin Actions */}
+                      {isAdmin && (
+                        <div className="d-flex flex-column flex-sm-row gap-2">
 
-                      <Link
-                        to={`/edit-question/${question._id}`}
-                        className="btn btn-warning"
-                      >
-                        ✏️ Edit
-                      </Link>
+                          <Link
+                            to={
+                              "/edit-question/" +
+                              question._id
+                            }
+                            className="btn btn-warning"
+                          >
+                            ✏️ Edit
+                          </Link>
 
-                      <button
-                        className="btn btn-danger"
-                        onClick={() =>
-                          deleteQuestion(question._id)
-                        }
-                      >
-                        🗑 Delete
-                      </button>
+                          <button
+                            type="button"
+                            className="btn btn-danger"
+                            onClick={() =>
+                              deleteQuestion(
+                                question._id
+                              )
+                            }
+                          >
+                            🗑 Delete
+                          </button>
+
+                        </div>
+                      )}
 
                     </div>
 
@@ -438,10 +657,8 @@ function Questions() {
                 </div>
 
               </div>
-
-            </div>
-
-          ))}
+            );
+          })}
 
         </div>
 
@@ -452,3 +669,4 @@ function Questions() {
 }
 
 export default Questions;
+

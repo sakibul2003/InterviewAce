@@ -31,6 +31,13 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
+
+    completedQuestions: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Question",
+  },
+],
   },
   {
     timestamps: true,

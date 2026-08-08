@@ -1,4 +1,5 @@
 console.log("✅ QUESTION ROUTES LOADED");
+
 const express = require("express");
 const router = express.Router();
 
@@ -10,19 +11,31 @@ const {
   deleteQuestion,
 } = require("../controllers/questionController");
 
-// Add Question
-router.post("/", addQuestion);
+const { protect, adminOnly } = require("../middleware/authMiddleware");
 
-// Get All Questions
+// ===============================
+// Admin Only: Add Question
+// ===============================
+router.post("/", protect, adminOnly, addQuestion);
+
+// ===============================
+// Everyone: Get All Questions
+// ===============================
 router.get("/", getQuestions);
 
-// Get Single Question
+// ===============================
+// Everyone: Get Single Question
+// ===============================
 router.get("/:id", getQuestionById);
 
-// Update Question
-router.put("/:id", updateQuestion);
+// ===============================
+// Admin Only: Update Question
+// ===============================
+router.put("/:id", protect, adminOnly, updateQuestion);
 
-// Delete Question
-router.delete("/:id", deleteQuestion);
+// ===============================
+// Admin Only: Delete Question
+// ===============================
+router.delete("/:id", protect, adminOnly, deleteQuestion);
 
 module.exports = router;

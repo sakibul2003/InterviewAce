@@ -1,43 +1,47 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
+// Components
 import Navbar from "./components/Navbar";
+import PrivateRoute from "./components/PrivateRoute";
+import AdminRoute from "./components/AdminRoute";
 
+// Public Pages
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+
+// User Pages
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Questions from "./pages/Questions";
 import Bookmarks from "./pages/Bookmarks";
 import AddQuestion from "./pages/AddQuestion";
 import EditQuestion from "./pages/EditQuestion";
-import PrivateRoute from "./components/PrivateRoute";
+
+// Admin Pages
 import AdminPanel from "./pages/AdminPanel";
 
 function App() {
   return (
     <BrowserRouter>
-      {/* Navigation Bar */}
       <Navbar />
 
-      {/* Application Routes */}
       <Routes>
 
-        {/* ===============================
-            Public Pages
-        =============================== */}
-
+        {/* Public Pages */}
         <Route path="/" element={<Home />} />
-
         <Route path="/login" element={<Login />} />
-
         <Route path="/register" element={<Register />} />
 
-        <Route path="/questions" element={<Questions />} />
-
-        {/* ===============================
-            Protected User Pages
-        =============================== */}
+        {/* Protected User Pages */}
+        <Route
+          path="/questions"
+          element={
+            <PrivateRoute>
+              <Questions />
+            </PrivateRoute>
+          }
+        />
 
         <Route
           path="/dashboard"
@@ -83,14 +87,16 @@ function App() {
             </PrivateRoute>
           }
         />
+
+        {/* Admin Panel */}
         <Route
-  path="/admin"
-  element={
-    <PrivateRoute>
-      <AdminPanel />
-    </PrivateRoute>
-  }
-/>
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminPanel />
+            </AdminRoute>
+          }
+        />
 
       </Routes>
     </BrowserRouter>

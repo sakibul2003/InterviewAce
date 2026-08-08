@@ -13,6 +13,8 @@ function Dashboard() {
 
   const [questions, setQuestions] = useState([]);
   const [bookmarkedCount, setBookmarkedCount] = useState(0);
+  const [completedQuestions, setCompletedQuestions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
@@ -23,16 +25,41 @@ function Dashboard() {
   // ===============================
   const fetchDashboardData = async () => {
     try {
-      const res = await API.get("/questions");
+      setLoading(true);
 
-      setQuestions(res.data.questions || []);
+      // Fetch all questions
+      const questionRes = await API.get("/questions");
 
+      setQuestions(questionRes.data.questions || []);
+
+      // Fetch bookmarks from localStorage
       const savedBookmarks =
         JSON.parse(localStorage.getItem("bookmarks")) || [];
 
       setBookmarkedCount(savedBookmarks.length);
+
+      // Fetch logged-in user's completed questions
+      const profileRes = await API.get("/users/profile");
+
+      const completed =
+        profileRes.data.user?.completedQuestions || [];
+
+      setCompletedQuestions(
+        completed.map((id) => id.toString())
+      );
     } catch (error) {
       console.error("Dashboard Error:", error);
+
+      if (error.response?.status === 401) {
+        alert("Session expired. Please login again.");
+
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -41,6 +68,20 @@ function Dashboard() {
   // ===============================
 
   const totalQuestions = questions.length;
+
+  const completedCount = completedQuestions.length;
+
+  const remainingQuestions = Math.max(
+    totalQuestions - completedCount,
+    0
+  );
+
+  const progressPercentage =
+    totalQuestions > 0
+      ? Math.round(
+          (completedCount / totalQuestions) * 100
+        )
+      : 0;
 
   const easyQuestions = questions.filter(
     (question) => question.difficulty === "Easy"
@@ -65,6 +106,36 @@ function Dashboard() {
     navigate("/login");
   };
 
+  // ===============================
+  // Loading
+  // ===============================
+
+  if (loading) {
+    return (
+      <div className="container mt-5 mb-5">
+        <div className="card shadow-sm border-0">
+          <div className="card-body text-center py-5">
+
+            <div className="spinner-border text-primary mb-3">
+              <span className="visually-hidden">
+                Loading...
+              </span>
+            </div>
+
+            <h5 className="fw-bold">
+              Loading Dashboard
+            </h5>
+
+            <p className="text-muted mb-0">
+              Fetching your preparation progress...
+            </p>
+
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mt-5 mb-5">
 
@@ -86,7 +157,8 @@ function Dashboard() {
               Welcome back,{" "}
               <span className="text-primary">
                 {user?.name || "User"}
-              </span> 👋
+              </span>{" "}
+              👋
             </h1>
 
             <p className="text-muted fs-5 mb-1">
@@ -121,7 +193,73 @@ function Dashboard() {
       </div>
 
       {/* ===============================
-          Dashboard Header
+          Preparation Progress
+      =============================== */}
+
+      <div className="card shadow-sm border-0 mb-5">
+
+        <div className="card-body p-4 p-md-5">
+
+          <div className="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+
+            <div>
+              <h3 className="fw-bold mb-1">
+                🎯 Preparation Progress
+              </h3>
+
+              <p className="text-muted mb-0">
+                Track how much of the question library you have completed.
+              </p>
+            </div>
+
+            <div className="text-md-end">
+              <h2 className="fw-bold text-primary mb-0">
+                {progressPercentage}%
+              </h2>
+
+              <small className="text-muted">
+                Completed
+              </small>
+            </div>
+
+          </div>
+
+          <div
+            className="progress"
+            style={{ height: "14px" }}
+          >
+            <div
+              className="progress-bar bg-primary"
+              role="progressbar"
+              style={{
+                width: `${progressPercentage}%`,
+              }}
+              aria-valuenow={progressPercentage}
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              {progressPercentage}%
+            </div>
+          </div>
+
+          <div className="d-flex justify-content-between mt-3">
+
+            <small className="text-muted">
+              ✅ {completedCount} completed
+            </small>
+
+            <small className="text-muted">
+              ⏳ {remainingQuestions} remaining
+            </small>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ===============================
+          Statistics
       =============================== */}
 
       <div className="mb-4">
@@ -131,14 +269,10 @@ function Dashboard() {
         </h2>
 
         <p className="text-muted">
-          Monitor your InterviewAce activity and practice progress.
+          Monitor your InterviewAce activity and progress.
         </p>
 
       </div>
-
-      {/* ===============================
-          Statistics Cards
-      =============================== */}
 
       <div className="row g-4">
 
@@ -168,17 +302,83 @@ function Dashboard() {
 
             </div>
 
-            <div className="mt-3">
-              <small className="text-primary fw-semibold">
-                Available for practice
-              </small>
-            </div>
+            <small className="text-primary fw-semibold mt-3 d-block">
+              Available for practice
+            </small>
 
           </div>
 
         </div>
 
-        {/* Bookmarks */}
+        {/* Completed */}
+
+        <div className="col-sm-6 col-xl-3">
+
+          <div className="card shadow-sm border-0 h-100 p-4">
+
+            <div className="d-flex justify-content-between align-items-start">
+
+              <div>
+
+                <p className="text-muted mb-1">
+                  Completed
+                </p>
+
+                <h2 className="fw-bold text-success mb-0">
+                  {completedCount}
+                </h2>
+
+              </div>
+
+              <div className="fs-1">
+                ✅
+              </div>
+
+            </div>
+
+            <small className="text-success fw-semibold mt-3 d-block">
+              Questions completed
+            </small>
+
+          </div>
+
+        </div>
+
+        {/* Remaining */}
+
+        <div className="col-sm-6 col-xl-3">
+
+          <div className="card shadow-sm border-0 h-100 p-4">
+
+            <div className="d-flex justify-content-between align-items-start">
+
+              <div>
+
+                <p className="text-muted mb-1">
+                  Remaining
+                </p>
+
+                <h2 className="fw-bold text-warning mb-0">
+                  {remainingQuestions}
+                </h2>
+
+              </div>
+
+              <div className="fs-1">
+                ⏳
+              </div>
+
+            </div>
+
+            <small className="text-warning fw-semibold mt-3 d-block">
+              Questions to practice
+            </small>
+
+          </div>
+
+        </div>
+
+        {/* Bookmarked */}
 
         <div className="col-sm-6 col-xl-3">
 
@@ -204,83 +404,9 @@ function Dashboard() {
 
             </div>
 
-            <div className="mt-3">
-              <small className="text-warning fw-semibold">
-                Saved for revision
-              </small>
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Easy */}
-
-        <div className="col-sm-6 col-xl-3">
-
-          <div className="card shadow-sm border-0 h-100 p-4">
-
-            <div className="d-flex justify-content-between align-items-start">
-
-              <div>
-
-                <p className="text-muted mb-1">
-                  Easy Questions
-                </p>
-
-                <h2 className="fw-bold text-success mb-0">
-                  {easyQuestions}
-                </h2>
-
-              </div>
-
-              <div className="fs-1">
-                🟢
-              </div>
-
-            </div>
-
-            <div className="mt-3">
-              <small className="text-success fw-semibold">
-                Build your fundamentals
-              </small>
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Hard */}
-
-        <div className="col-sm-6 col-xl-3">
-
-          <div className="card shadow-sm border-0 h-100 p-4">
-
-            <div className="d-flex justify-content-between align-items-start">
-
-              <div>
-
-                <p className="text-muted mb-1">
-                  Hard Questions
-                </p>
-
-                <h2 className="fw-bold text-danger mb-0">
-                  {hardQuestions}
-                </h2>
-
-              </div>
-
-              <div className="fs-1">
-                🔴
-              </div>
-
-            </div>
-
-            <div className="mt-3">
-              <small className="text-danger fw-semibold">
-                Challenge yourself
-              </small>
-            </div>
+            <small className="text-warning fw-semibold mt-3 d-block">
+              Saved for revision
+            </small>
 
           </div>
 
@@ -296,21 +422,13 @@ function Dashboard() {
 
         <div className="card-body p-4">
 
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+          <h4 className="fw-bold mb-1">
+            🎯 Question Difficulty
+          </h4>
 
-            <div>
-
-              <h4 className="fw-bold mb-1">
-                🎯 Question Difficulty
-              </h4>
-
-              <p className="text-muted mb-0">
-                Distribution of your available interview questions.
-              </p>
-
-            </div>
-
-          </div>
+          <p className="text-muted mb-4">
+            Distribution of your available interview questions.
+          </p>
 
           <div className="row g-4">
 

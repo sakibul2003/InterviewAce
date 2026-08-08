@@ -1,41 +1,162 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import API from "../services/api";
 
 function Profile() {
+  const navigate = useNavigate();
+
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (error) {
-        console.error("User data error:", error);
-      }
-    }
+    fetchProfile();
   }, []);
 
-  if (!user) {
+  // ===============================
+  // Fetch Authenticated Profile
+  // ===============================
+  const fetchProfile = async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const res = await API.get("/users/profile");
+
+      if (res.data.user) {
+        setUser(res.data.user);
+
+        // Keep localStorage user information updated
+        localStorage.setItem(
+          "user",
+          JSON.stringify(res.data.user)
+        );
+      } else {
+        setError("Unable to load your profile.");
+      }
+    } catch (error) {
+      console.error("Profile Error:", error);
+
+      if (error.response?.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+
+        navigate("/login");
+        return;
+      }
+
+      if (error.response) {
+        setError(
+          error.response.data?.message ||
+            "Failed to load profile."
+        );
+      } else if (error.request) {
+        setError(
+          "Unable to connect to the server. Please make sure the backend is running."
+        );
+      } else {
+        setError(
+          "Something went wrong while loading your profile."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ===============================
+  // Loading State
+  // ===============================
+  if (loading) {
     return (
       <div className="container mt-5 mb-5">
         <div className="card shadow-sm border-0">
           <div className="card-body text-center py-5">
-            <div className="display-4 mb-3">⚠️</div>
 
-            <h4 className="fw-bold">
-              User Information Not Found
-            </h4>
+            <div className="spinner-border text-primary mb-3">
+              <span className="visually-hidden">
+                Loading...
+              </span>
+            </div>
+
+            <h5 className="fw-bold">
+              Loading Profile
+            </h5>
 
             <p className="text-muted mb-0">
-              Please log in again to view your profile.
+              Fetching your account information...
             </p>
+
           </div>
         </div>
       </div>
     );
   }
 
+  // ===============================
+  // Error State
+  // ===============================
+  if (error) {
+    return (
+      <div className="container mt-5 mb-5">
+
+        <div className="card shadow-sm border-0">
+
+          <div className="card-body text-center py-5">
+
+            <div className="display-4 mb-3">
+              ⚠️
+            </div>
+
+            <h4 className="fw-bold">
+              Profile Unavailable
+            </h4>
+
+            <p className="text-muted">
+              {error}
+            </p>
+
+            <button
+              className="btn btn-primary"
+              onClick={fetchProfile}
+            >
+              🔄 Try Again
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  // ===============================
+  // No User
+  // ===============================
+  if (!user) {
+    return (
+      <div className="container mt-5 mb-5">
+
+        <div className="alert alert-warning text-center">
+          User information could not be found.
+        </div>
+
+      </div>
+    );
+  }
+
   const isAdmin = user.role === "admin";
+
+  const completedCount =
+    user.completedQuestions?.length || 0;
 
   return (
     <div className="container mt-5 mb-5">
@@ -68,7 +189,9 @@ function Profile() {
             <div className="col-md-9 text-center text-md-start">
 
               <span className="badge bg-light text-primary mb-2 px-3 py-2">
-                {isAdmin ? "👨‍💼 Administrator" : "👤 InterviewAce User"}
+                {isAdmin
+                  ? "👨‍💼 Administrator"
+                  : "👤 InterviewAce User"}
               </span>
 
               <h1 className="fw-bold mb-2">
@@ -102,7 +225,7 @@ function Profile() {
             </h3>
 
             <p className="text-muted mb-0">
-              Your basic account information.
+              Your account information retrieved from InterviewAce.
             </p>
 
           </div>
@@ -155,23 +278,17 @@ function Profile() {
 
         <div className="card-body p-4 p-md-5">
 
-          <div className="mb-4">
+          <h3 className="fw-bold mb-1">
+            🔐 Account Information
+          </h3>
 
-            <h3 className="fw-bold mb-1">
-              🔐 Account Information
-            </h3>
-
-            <p className="text-muted mb-0">
-              Security and platform information.
-            </p>
-
-          </div>
+          <p className="text-muted mb-4">
+            Your authentication status, role, and progress.
+          </p>
 
           <div className="row g-4">
 
-            {/* Account Status */}
-
-            <div className="col-md-4">
+            <div className="col-md-3">
 
               <div className="border rounded-4 p-4 text-center h-100">
 
@@ -179,9 +296,9 @@ function Profile() {
                   ✅
                 </div>
 
-                <h5 className="fw-bold">
+                <h6 className="fw-bold">
                   Account Status
-                </h5>
+                </h6>
 
                 <span className="badge bg-success px-3 py-2">
                   Active
@@ -191,9 +308,7 @@ function Profile() {
 
             </div>
 
-            {/* Authentication */}
-
-            <div className="col-md-4">
+            <div className="col-md-3">
 
               <div className="border rounded-4 p-4 text-center h-100">
 
@@ -201,9 +316,9 @@ function Profile() {
                   🔒
                 </div>
 
-                <h5 className="fw-bold">
+                <h6 className="fw-bold">
                   Authentication
-                </h5>
+                </h6>
 
                 <p className="text-muted mb-0">
                   JWT Protected
@@ -213,9 +328,7 @@ function Profile() {
 
             </div>
 
-            {/* Role */}
-
-            <div className="col-md-4">
+            <div className="col-md-3">
 
               <div className="border rounded-4 p-4 text-center h-100">
 
@@ -223,9 +336,9 @@ function Profile() {
                   {isAdmin ? "👨‍💼" : "🎯"}
                 </div>
 
-                <h5 className="fw-bold">
+                <h6 className="fw-bold">
                   Account Role
-                </h5>
+                </h6>
 
                 <span
                   className={`badge px-3 py-2 ${
@@ -234,8 +347,34 @@ function Profile() {
                       : "bg-primary"
                   }`}
                 >
-                  {isAdmin ? "Administrator" : "User"}
+                  {isAdmin
+                    ? "Administrator"
+                    : "User"}
                 </span>
+
+              </div>
+
+            </div>
+
+            <div className="col-md-3">
+
+              <div className="border rounded-4 p-4 text-center h-100">
+
+                <div className="fs-1 mb-2">
+                  ✅
+                </div>
+
+                <h6 className="fw-bold">
+                  Completed
+                </h6>
+
+                <h4 className="text-success fw-bold mb-0">
+                  {completedCount}
+                </h4>
+
+                <small className="text-muted">
+                  Questions
+                </small>
 
               </div>
 
@@ -248,7 +387,7 @@ function Profile() {
       </div>
 
       {/* ===============================
-          InterviewAce Information
+          About InterviewAce
       =============================== */}
 
       <div className="card shadow-sm border-0 mb-4">
@@ -288,7 +427,7 @@ function Profile() {
       </div>
 
       {/* ===============================
-          Profile Summary
+          Continue Preparing
       =============================== */}
 
       <div className="card shadow-sm border-0">
@@ -304,14 +443,17 @@ function Profile() {
               </h5>
 
               <p className="text-muted mb-0">
-                Consistent practice is the key to interview success.
+                Continue practising questions to improve your interview readiness.
               </p>
 
             </div>
 
-            <span className="badge bg-success px-3 py-2">
-              ✅ Ready to Practice
-            </span>
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate("/questions")}
+            >
+              📚 Practice Questions
+            </button>
 
           </div>
 

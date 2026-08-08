@@ -2,43 +2,125 @@ import { useState } from "react";
 import API from "../services/api";
 
 function AddQuestion() {
-  const [formData, setFormData] = useState({
+  const initialForm = {
     title: "",
     answer: "",
     category: "OOP",
     difficulty: "Easy",
-  });
-
-  const [loading, setLoading] = useState(false);
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
   };
 
+  const [formData, setFormData] = useState(initialForm);
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // ===============================
+  // Handle Input
+  // ===============================
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+
+    setErrors({
+      ...errors,
+      [name]: "",
+    });
+
+    setServerError("");
+    setSuccessMessage("");
+  };
+
+  // ===============================
+  // Validate Form
+  // ===============================
+  const validateForm = () => {
+    const newErrors = {};
+
+    const title = formData.title.trim();
+    const answer = formData.answer.trim();
+
+    if (!title) {
+      newErrors.title = "Question title is required.";
+    } else if (title.length < 5) {
+      newErrors.title =
+        "Question title must contain at least 5 characters.";
+    }
+
+    if (!answer) {
+      newErrors.answer = "Answer is required.";
+    } else if (answer.length < 10) {
+      newErrors.answer =
+        "Answer must contain at least 10 characters.";
+    }
+
+    return newErrors;
+  };
+
+  // ===============================
+  // Submit
+  // ===============================
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    setServerError("");
+    setSuccessMessage("");
+
+    const validationErrors = validateForm();
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
 
     setLoading(true);
 
     try {
-      const res = await API.post("/questions", formData);
-
-      alert(res.data.message);
-
-      setFormData({
-        title: "",
-        answer: "",
-        category: "OOP",
-        difficulty: "Easy",
+      const res = await API.post("/questions", {
+        title: formData.title.trim(),
+        answer: formData.answer.trim(),
+        category: formData.category,
+        difficulty: formData.difficulty,
       });
-    } catch (error) {
-      alert(
-        error.response?.data?.message ||
-          "Failed to Add Question"
+
+      setSuccessMessage(
+        res.data.message || "Question added successfully."
       );
+
+      setFormData(initialForm);
+      setErrors({});
+    } catch (error) {
+      console.error("Add Question Error:", error);
+
+      if (error.response) {
+        if (error.response.status === 401) {
+          setServerError(
+            "Your session has expired. Please login again."
+          );
+        } else if (error.response.status === 400) {
+          setServerError(
+            error.response.data?.message ||
+              "Please check your question information."
+          );
+        } else {
+          setServerError(
+            error.response.data?.message ||
+              "Failed to add question."
+          );
+        }
+      } else if (error.request) {
+        setServerError(
+          "Unable to connect to the server. Please make sure the backend is running."
+        );
+      } else {
+        setServerError(
+          "Something went wrong. Please try again."
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -46,7 +128,6 @@ function AddQuestion() {
 
   return (
     <div className="container mt-5 mb-5">
-
       <div
         className="mx-auto"
         style={{ maxWidth: "760px" }}
@@ -77,7 +158,29 @@ function AddQuestion() {
 
           <div className="card-body p-4 p-md-5">
 
-            <form onSubmit={handleSubmit}>
+            {/* Server Error */}
+
+            {serverError && (
+              <div
+                className="alert alert-danger"
+                role="alert"
+              >
+                ❌ {serverError}
+              </div>
+            )}
+
+            {/* Success */}
+
+            {successMessage && (
+              <div
+                className="alert alert-success"
+                role="alert"
+              >
+                ✅ {successMessage}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} noValidate>
 
               {/* Question */}
 
@@ -93,13 +196,20 @@ function AddQuestion() {
                 <input
                   id="title"
                   type="text"
-                  className="form-control"
+                  className={`form-control ${
+                    errors.title ? "is-invalid" : ""
+                  }`}
                   name="title"
                   placeholder="Enter the interview question..."
                   value={formData.title}
                   onChange={handleChange}
-                  required
                 />
+
+                {errors.title && (
+                  <div className="invalid-feedback">
+                    {errors.title}
+                  </div>
+                )}
 
               </div>
 
@@ -116,14 +226,21 @@ function AddQuestion() {
 
                 <textarea
                   id="answer"
-                  className="form-control"
+                  className={`form-control ${
+                    errors.answer ? "is-invalid" : ""
+                  }`}
                   rows="6"
                   name="answer"
                   placeholder="Write a clear and concise answer..."
                   value={formData.answer}
                   onChange={handleChange}
-                  required
                 />
+
+                {errors.answer && (
+                  <div className="invalid-feedback">
+                    {errors.answer}
+                  </div>
+                )}
 
                 <small className="text-muted">
                   Provide an interview-friendly explanation.
@@ -204,7 +321,7 @@ function AddQuestion() {
 
         </div>
 
-        {/* Help text */}
+        {/* Help Text */}
 
         <div className="text-center mt-4">
 
@@ -216,7 +333,6 @@ function AddQuestion() {
         </div>
 
       </div>
-
     </div>
   );
 }
