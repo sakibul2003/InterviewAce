@@ -1,5 +1,6 @@
 import { useState } from "react";
 import API from "../services/api";
+import Toast from "../components/Toast";
 
 function AddQuestion() {
   const initialForm = {
@@ -11,9 +12,29 @@ function AddQuestion() {
 
   const [formData, setFormData] = useState(initialForm);
   const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [toast, setToast] = useState({
+    message: "",
+    type: "success",
+  });
+
+  // ===============================
+  // Toast Helper
+  // ===============================
+  const showToast = (message, type = "success") => {
+    setToast({
+      message,
+      type,
+    });
+
+    setTimeout(() => {
+      setToast({
+        message: "",
+        type: "success",
+      });
+    }, 3000);
+  };
 
   // ===============================
   // Handle Input
@@ -30,9 +51,6 @@ function AddQuestion() {
       ...errors,
       [name]: "",
     });
-
-    setServerError("");
-    setSuccessMessage("");
   };
 
   // ===============================
@@ -62,18 +80,23 @@ function AddQuestion() {
   };
 
   // ===============================
-  // Submit
+  // Submit Question
   // ===============================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    setServerError("");
-    setSuccessMessage("");
+    setErrors({});
 
     const validationErrors = validateForm();
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+
+      showToast(
+        "Please fix the highlighted fields.",
+        "warning"
+      );
+
       return;
     }
 
@@ -87,38 +110,53 @@ function AddQuestion() {
         difficulty: formData.difficulty,
       });
 
-      setSuccessMessage(
-        res.data.message || "Question added successfully."
+      showToast(
+        res.data.message ||
+          "Question added successfully.",
+        "success"
       );
 
       setFormData(initialForm);
       setErrors({});
     } catch (error) {
-      console.error("Add Question Error:", error);
+      console.error(
+        "Add Question Error:",
+        error
+      );
 
       if (error.response) {
         if (error.response.status === 401) {
-          setServerError(
-            "Your session has expired. Please login again."
+          showToast(
+            "Your session has expired. Please login again.",
+            "warning"
+          );
+        } else if (error.response.status === 403) {
+          showToast(
+            "Admin access required.",
+            "error"
           );
         } else if (error.response.status === 400) {
-          setServerError(
+          showToast(
             error.response.data?.message ||
-              "Please check your question information."
+              "Please check your question information.",
+            "error"
           );
         } else {
-          setServerError(
+          showToast(
             error.response.data?.message ||
-              "Failed to add question."
+              "Failed to add question.",
+            "error"
           );
         }
       } else if (error.request) {
-        setServerError(
-          "Unable to connect to the server. Please make sure the backend is running."
+        showToast(
+          "Unable to connect to the server.",
+          "error"
         );
       } else {
-        setServerError(
-          "Something went wrong. Please try again."
+        showToast(
+          "Something went wrong. Please try again.",
+          "error"
         );
       }
     } finally {
@@ -127,211 +165,190 @@ function AddQuestion() {
   };
 
   return (
-    <div className="container mt-5 mb-5">
-      <div
-        className="mx-auto"
-        style={{ maxWidth: "760px" }}
-      >
+    <div
+      className="mx-auto"
+      style={{ maxWidth: "760px" }}
+    >
+      {/* Toast */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() =>
+          setToast({
+            message: "",
+            type: "success",
+          })
+        }
+      />
 
-        {/* Header */}
+      {/* Header */}
+      <div className="text-center mb-4">
+        <span className="badge bg-success-subtle text-success px-3 py-2 mb-3">
+          📝 Question Management
+        </span>
 
-        <div className="text-center mb-4">
+        <h1 className="fw-bold">
+          ➕ Add Interview Question
+        </h1>
 
-          <span className="badge bg-success-subtle text-success px-3 py-2 mb-3">
-            📝 Question Management
-          </span>
+        <p className="text-muted">
+          Create a new question for the InterviewAce
+          question library.
+        </p>
+      </div>
 
-          <h1 className="fw-bold">
-            ➕ Add Interview Question
-          </h1>
+      {/* Form Card */}
+      <div className="card shadow-lg border-0">
+        <div className="card-body p-4 p-md-5">
 
-          <p className="text-muted">
-            Create a new question for the InterviewAce
-            question library.
-          </p>
-
-        </div>
-
-        {/* Form Card */}
-
-        <div className="card shadow-lg border-0">
-
-          <div className="card-body p-4 p-md-5">
-
-            {/* Server Error */}
-
-            {serverError && (
-              <div
-                className="alert alert-danger"
-                role="alert"
+          <form
+            onSubmit={handleSubmit}
+            noValidate
+          >
+            {/* Question */}
+            <div className="mb-4">
+              <label
+                htmlFor="title"
+                className="form-label fw-semibold"
               >
-                ❌ {serverError}
-              </div>
-            )}
+                Question
+              </label>
 
-            {/* Success */}
+              <input
+                id="title"
+                type="text"
+                className={`form-control ${
+                  errors.title
+                    ? "is-invalid"
+                    : ""
+                }`}
+                name="title"
+                placeholder="Enter the interview question..."
+                value={formData.title}
+                onChange={handleChange}
+              />
 
-            {successMessage && (
-              <div
-                className="alert alert-success"
-                role="alert"
+              {errors.title && (
+                <div className="invalid-feedback">
+                  {errors.title}
+                </div>
+              )}
+            </div>
+
+            {/* Answer */}
+            <div className="mb-4">
+              <label
+                htmlFor="answer"
+                className="form-label fw-semibold"
               >
-                ✅ {successMessage}
-              </div>
-            )}
+                Answer
+              </label>
 
-            <form onSubmit={handleSubmit} noValidate>
+              <textarea
+                id="answer"
+                className={`form-control ${
+                  errors.answer
+                    ? "is-invalid"
+                    : ""
+                }`}
+                rows="6"
+                name="answer"
+                placeholder="Write a clear and concise answer..."
+                value={formData.answer}
+                onChange={handleChange}
+              />
 
-              {/* Question */}
+              {errors.answer && (
+                <div className="invalid-feedback">
+                  {errors.answer}
+                </div>
+              )}
 
-              <div className="mb-4">
+              <small className="text-muted">
+                Provide an interview-friendly
+                explanation.
+              </small>
+            </div>
 
+            {/* Category + Difficulty */}
+            <div className="row g-3 mb-4">
+
+              <div className="col-12 col-md-6">
                 <label
-                  htmlFor="title"
+                  htmlFor="category"
                   className="form-label fw-semibold"
                 >
-                  Question
+                  Category
                 </label>
 
-                <input
-                  id="title"
-                  type="text"
-                  className={`form-control ${
-                    errors.title ? "is-invalid" : ""
-                  }`}
-                  name="title"
-                  placeholder="Enter the interview question..."
-                  value={formData.title}
+                <select
+                  id="category"
+                  className="form-select"
+                  name="category"
+                  value={formData.category}
                   onChange={handleChange}
-                />
-
-                {errors.title && (
-                  <div className="invalid-feedback">
-                    {errors.title}
-                  </div>
-                )}
-
+                >
+                  <option value="DSA">DSA</option>
+                  <option value="DBMS">DBMS</option>
+                  <option value="OOP">OOP</option>
+                  <option value="OS">OS</option>
+                  <option value="CN">CN</option>
+                  <option value="HR">HR</option>
+                </select>
               </div>
 
-              {/* Answer */}
-
-              <div className="mb-4">
-
+              <div className="col-12 col-md-6">
                 <label
-                  htmlFor="answer"
+                  htmlFor="difficulty"
                   className="form-label fw-semibold"
                 >
-                  Answer
+                  Difficulty
                 </label>
 
-                <textarea
-                  id="answer"
-                  className={`form-control ${
-                    errors.answer ? "is-invalid" : ""
-                  }`}
-                  rows="6"
-                  name="answer"
-                  placeholder="Write a clear and concise answer..."
-                  value={formData.answer}
+                <select
+                  id="difficulty"
+                  className="form-select"
+                  name="difficulty"
+                  value={formData.difficulty}
                   onChange={handleChange}
-                />
-
-                {errors.answer && (
-                  <div className="invalid-feedback">
-                    {errors.answer}
-                  </div>
-                )}
-
-                <small className="text-muted">
-                  Provide an interview-friendly explanation.
-                </small>
-
+                >
+                  <option value="Easy">Easy</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Hard">Hard</option>
+                </select>
               </div>
 
-              {/* Category + Difficulty */}
+            </div>
 
-              <div className="row g-3 mb-4">
-
-                <div className="col-12 col-md-6">
-
-                  <label
-                    htmlFor="category"
-                    className="form-label fw-semibold"
-                  >
-                    Category
-                  </label>
-
-                  <select
-                    id="category"
-                    className="form-select"
-                    name="category"
-                    value={formData.category}
-                    onChange={handleChange}
-                  >
-                    <option value="DSA">DSA</option>
-                    <option value="DBMS">DBMS</option>
-                    <option value="OOP">OOP</option>
-                    <option value="OS">OS</option>
-                    <option value="CN">CN</option>
-                    <option value="HR">HR</option>
-                  </select>
-
-                </div>
-
-                <div className="col-12 col-md-6">
-
-                  <label
-                    htmlFor="difficulty"
-                    className="form-label fw-semibold"
-                  >
-                    Difficulty
-                  </label>
-
-                  <select
-                    id="difficulty"
-                    className="form-select"
-                    name="difficulty"
-                    value={formData.difficulty}
-                    onChange={handleChange}
-                  >
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
-                  </select>
-
-                </div>
-
-              </div>
-
-              {/* Submit */}
-
-              <button
-                type="submit"
-                className="btn btn-success w-100 py-2"
-                disabled={loading}
-              >
-                {loading
-                  ? "Adding Question..."
-                  : "➕ Add Question"}
-              </button>
-
-            </form>
-
-          </div>
-
+            {/* Submit */}
+            <button
+              type="submit"
+              className="btn btn-success w-100 py-2"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <span
+                    className="spinner-border spinner-border-sm me-2"
+                    role="status"
+                    aria-hidden="true"
+                  ></span>
+                  Adding Question...
+                </>
+              ) : (
+                "➕ Add Question"
+              )}
+            </button>
+          </form>
         </div>
+      </div>
 
-        {/* Help Text */}
-
-        <div className="text-center mt-4">
-
-          <p className="text-muted mb-0">
-            💡 Tip: Keep questions specific and answers
-            clear enough for quick interview revision.
-          </p>
-
-        </div>
-
+      {/* Help Text */}
+      <div className="text-center mt-4">
+        <p className="text-muted mb-0">
+          💡 Tip: Keep questions specific and answers
+          clear enough for quick interview revision.
+        </p>
       </div>
     </div>
   );

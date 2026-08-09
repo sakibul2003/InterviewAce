@@ -1,6 +1,8 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
+import Toast from "../components/Toast";
 
 function Login() {
   const navigate = useNavigate();
@@ -10,224 +12,378 @@ function Login() {
     password: "",
   });
 
-  const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [toast, setToast] = useState({
+    message: "",
+    type: "success",
+  });
+
+  // ===============================
+  // Show Toast
+  // ===============================
+  const showToast = (message, type = "success") => {
+    setToast({
+      message,
+      type,
+    });
+  };
 
   // ===============================
   // Handle Input
   // ===============================
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
 
-    setErrors({
-      ...errors,
-      [e.target.name]: "",
-    });
-
-    setServerError("");
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   // ===============================
-  // Validate Form
-  // ===============================
-  const validateForm = () => {
-    const newErrors = {};
-
-    const email = formData.email.trim();
-    const password = formData.password;
-
-    if (!email) {
-      newErrors.email = "Email is required.";
-    } else if (
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    ) {
-      newErrors.email = "Please enter a valid email address.";
-    }
-
-    if (!password) {
-      newErrors.password = "Password is required.";
-    }
-
-    return newErrors;
-  };
-
-  // ===============================
-  // Submit
+  // Handle Login
   // ===============================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    setServerError("");
+    const email = formData.email.trim();
+    const password = formData.password;
 
-    const validationErrors = validateForm();
+    // -------------------------------
+    // Frontend Validation
+    // -------------------------------
+    if (!email) {
+      showToast(
+        "Please enter your email address.",
+        "warning"
+      );
+      return;
+    }
 
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+    if (!password) {
+      showToast(
+        "Please enter your password.",
+        "warning"
+      );
       return;
     }
 
     setLoading(true);
 
     try {
+      // -------------------------------
+      // Login API
+      // -------------------------------
       const res = await API.post("/auth/login", {
-        email: formData.email.trim(),
-        password: formData.password,
+        email,
+        password,
       });
 
-      // Save authentication data
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem(
-        "user",
-        JSON.stringify(res.data.user)
+      console.log("LOGIN RESPONSE:", res.data);
+
+      // -------------------------------
+      // Check Token
+      // -------------------------------
+      if (!res.data?.token) {
+        console.error(
+          "Login failed: token missing from response.",
+          res.data
+        );
+
+        showToast(
+          "Login failed. Authentication token was not received.",
+          "error"
+        );
+
+        return;
+      }
+
+      // -------------------------------
+      // Check User
+      // -------------------------------
+      if (!res.data?.user) {
+        console.error(
+          "Login failed: user object missing from response.",
+          res.data
+        );
+
+        showToast(
+          "Login failed. User information was not received.",
+          "error"
+        );
+
+        return;
+      }
+
+      // -------------------------------
+      // Validate User Role
+      // -------------------------------
+      const loggedInUser = res.data.user;
+
+      console.log(
+        "LOGGED-IN USER:",
+        loggedInUser
       );
 
-      navigate("/dashboard");
-    } catch (error) {
-      console.error("Login Error:", error);
+      console.log(
+        "USER ROLE:",
+        loggedInUser.role
+      );
 
+      // -------------------------------
+      // Save Authentication Data
+      // -------------------------------
+      localStorage.setItem(
+        "token",
+        res.data.token
+      );
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(loggedInUser)
+      );
+      window.dispatchEvent(
+  new Event("authChanged")
+);
+
+      // -------------------------------
+      // Verify LocalStorage
+      // -------------------------------
+      console.log(
+        "STORED USER:",
+        JSON.parse(
+          localStorage.getItem("user")
+        )
+      );
+
+      // -------------------------------
+      // Success Message
+      // -------------------------------
+      showToast(
+        res.data.message ||
+          "Login successful!",
+        "success"
+      );
+
+      // -------------------------------
+      // Navigate
+      // -------------------------------
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 800);
+
+    } catch (error) {
+      console.error(
+        "Login Error:",
+        error
+      );
+
+      // -------------------------------
+      // Server Response Error
+      // -------------------------------
       if (error.response) {
-        setServerError(
-          error.response.data?.message ||
-            "Invalid email or password."
-        );
+        const status =
+          error.response.status;
+
+        const message =
+          error.response.data?.message;
+
+        if (status === 400) {
+          showToast(
+            message ||
+              "Please enter valid login information.",
+            "warning"
+          );
+        } else if (status === 401) {
+          showToast(
+            message ||
+              "Invalid email or password.",
+            "error"
+          );
+        } else if (status === 403) {
+          showToast(
+            message ||
+              "You are not allowed to login.",
+            "error"
+          );
+        } else {
+          showToast(
+            message ||
+              "Login failed. Please try again.",
+            "error"
+          );
+        }
+
+      // -------------------------------
+      // Server Not Reachable
+      // -------------------------------
       } else if (error.request) {
-        setServerError(
-          "Unable to connect to the server. Please make sure the backend is running."
+        showToast(
+          "Unable to connect to the server. Make sure the backend is running.",
+          "error"
         );
+
+      // -------------------------------
+      // Other Error
+      // -------------------------------
       } else {
-        setServerError(
-          "Something went wrong. Please try again."
+        showToast(
+          "Something went wrong. Please try again.",
+          "error"
         );
       }
+
     } finally {
       setLoading(false);
     }
   };
 
+  // ===============================
+  // UI
+  // ===============================
   return (
-    <div className="container mt-5 mb-5">
+    <div className="container py-5">
 
-      <div
-        className="mx-auto"
-        style={{ maxWidth: "500px" }}
-      >
+      {/* Toast */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() =>
+          setToast({
+            message: "",
+            type: "success",
+          })
+        }
+      />
 
-        {/* Header */}
+      <div className="row justify-content-center">
 
-        <div className="text-center mb-4">
+        <div className="col-12 col-md-8 col-lg-5">
 
-          <span className="badge bg-primary-subtle text-primary px-3 py-2 mb-3">
-            🚀 InterviewAce
-          </span>
+          {/* Header */}
+          <div className="text-center mb-4">
 
-          <h1 className="fw-bold">
-            Welcome Back
-          </h1>
+            <span className="badge bg-primary-subtle text-primary px-3 py-2 mb-3">
+              🔐 Authentication
+            </span>
 
-          <p className="text-muted">
-            Log in to continue your interview preparation.
-          </p>
+            <h1 className="fw-bold">
+              Welcome Back
+            </h1>
 
-        </div>
+            <p className="text-muted">
+              Login to continue your
+              InterviewAce journey.
+            </p>
 
-        {/* Login Card */}
+          </div>
 
-        <div className="card shadow-lg border-0">
+          {/* Login Card */}
+          <div className="card shadow-lg border-0">
 
-          <div className="card-body p-4 p-md-5">
+            <div className="card-body p-4 p-md-5">
 
-            {/* Error */}
-
-            {serverError && (
-              <div
-                className="alert alert-danger"
-                role="alert"
+              <form
+                onSubmit={handleSubmit}
+                noValidate
               >
-                ❌ {serverError}
-              </div>
-            )}
 
-            <form onSubmit={handleSubmit} noValidate>
+                {/* Email */}
+                <div className="mb-4">
 
-              {/* Email */}
+                  <label
+                    htmlFor="email"
+                    className="form-label fw-semibold"
+                  >
+                    Email Address
+                  </label>
 
-              <div className="mb-4">
+                  <input
+                    id="email"
+                    type="email"
+                    name="email"
+                    className="form-control"
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    disabled={loading}
+                    autoComplete="email"
+                  />
 
-                <label
-                  htmlFor="email"
-                  className="form-label fw-semibold"
+                </div>
+
+                {/* Password */}
+                <div className="mb-4">
+
+                  <label
+                    htmlFor="password"
+                    className="form-label fw-semibold"
+                  >
+                    Password
+                  </label>
+
+                  <input
+                    id="password"
+                    type="password"
+                    name="password"
+                    className="form-control"
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    disabled={loading}
+                    autoComplete="current-password"
+                  />
+
+                </div>
+
+                {/* Login Button */}
+                <button
+                  type="submit"
+                  className="btn btn-primary w-100 py-2"
+                  disabled={loading}
                 >
-                  Email Address
-                </label>
 
-                <input
-                  id="email"
-                  type="email"
-                  className={`form-control ${
-                    errors.email ? "is-invalid" : ""
-                  }`}
-                  placeholder="Enter your email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                />
+                  {loading ? (
+                    <>
+                      <span
+                        className="spinner-border spinner-border-sm me-2"
+                        role="status"
+                        aria-hidden="true"
+                      ></span>
 
-                {errors.email && (
-                  <div className="invalid-feedback">
-                    {errors.email}
-                  </div>
-                )}
+                      Logging in...
+                    </>
+                  ) : (
+                    "🔐 Login"
+                  )}
 
-              </div>
+                </button>
 
-              {/* Password */}
+              </form>
 
-              <div className="mb-4">
+            </div>
 
-                <label
-                  htmlFor="password"
-                  className="form-label fw-semibold"
-                >
-                  Password
-                </label>
+          </div>
 
-                <input
-                  id="password"
-                  type="password"
-                  className={`form-control ${
-                    errors.password ? "is-invalid" : ""
-                  }`}
-                  placeholder="Enter your password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                />
+          {/* Register */}
+          <div className="text-center mt-4">
 
-                {errors.password && (
-                  <div className="invalid-feedback">
-                    {errors.password}
-                  </div>
-                )}
+            <p className="text-muted mb-0">
 
-              </div>
-
-              {/* Login Button */}
+              Don't have an account?{" "}
 
               <button
-                className="btn btn-primary w-100 py-2"
-                type="submit"
-                disabled={loading}
+                type="button"
+                className="btn btn-link p-0"
+                onClick={() =>
+                  navigate("/register")
+                }
               >
-                {loading
-                  ? "Signing In..."
-                  : "🔐 Login"}
+                Register here
               </button>
 
-            </form>
+            </p>
 
           </div>
 
@@ -240,3 +396,4 @@ function Login() {
 }
 
 export default Login;
+

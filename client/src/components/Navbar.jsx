@@ -6,25 +6,20 @@ function Navbar() {
   // ===============================
   // Logged-in User
   // ===============================
-  const storedUser = localStorage.getItem("user");
+  const [user, setUser] = useState(() => {
+    const storedUser = localStorage.getItem("user");
 
-  let user = null;
+    if (!storedUser) {
+      return null;
+    }
 
-  try {
-    user = storedUser
-      ? JSON.parse(storedUser)
-      : null;
-  } catch (error) {
-    console.error("Invalid user data:", error);
-    user = null;
-  }
-
-  console.log("NAVBAR USER:", user);
-
-  // ===============================
-  // Admin Check
-  // ===============================
-  const isAdmin = user?.role === "admin";
+    try {
+      return JSON.parse(storedUser);
+    } catch (error) {
+      console.error("Invalid user data:", error);
+      return null;
+    }
+  });
 
   // ===============================
   // Dark Mode
@@ -33,6 +28,59 @@ function Navbar() {
     localStorage.getItem("darkMode") === "true"
   );
 
+  // ===============================
+  // Update User From LocalStorage
+  // ===============================
+  useEffect(() => {
+    const updateUser = () => {
+      const storedUser =
+        localStorage.getItem("user");
+
+      if (!storedUser) {
+        setUser(null);
+        return;
+      }
+
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        console.error(
+          "Invalid user data:",
+          error
+        );
+
+        setUser(null);
+      }
+    };
+
+    // Listen for custom authentication event
+    window.addEventListener(
+      "authChanged",
+      updateUser
+    );
+
+    // Also check when browser storage changes
+    window.addEventListener(
+      "storage",
+      updateUser
+    );
+
+    return () => {
+      window.removeEventListener(
+        "authChanged",
+        updateUser
+      );
+
+      window.removeEventListener(
+        "storage",
+        updateUser
+      );
+    };
+  }, []);
+
+  // ===============================
+  // Dark Mode Effect
+  // ===============================
   useEffect(() => {
     document.body.classList.toggle(
       "dark-mode",
@@ -46,10 +94,31 @@ function Navbar() {
   }, [darkMode]);
 
   // ===============================
+  // Admin Check
+  // ===============================
+  const isAdmin =
+    user?.role === "admin";
+
+  // ===============================
+  // Logout
+  // ===============================
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    // Tell Navbar that authentication changed
+    window.dispatchEvent(
+      new Event("authChanged")
+    );
+
+    window.location.href = "/login";
+  };
+
+  // ===============================
   // Navbar
   // ===============================
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav className="navbar navbar-expand-lg bg-dark navbar-dark shadow-sm">
       <div className="container">
 
         {/* Logo */}
@@ -60,7 +129,7 @@ function Navbar() {
           🚀 InterviewAce
         </Link>
 
-        {/* Mobile Menu Button */}
+        {/* Mobile Menu */}
         <button
           className="navbar-toggler"
           type="button"
@@ -88,57 +157,88 @@ function Navbar() {
               🏠 Home
             </Link>
 
-            {/* Questions */}
-            <Link
-              className="nav-link px-3"
-              to="/questions"
-            >
-              📚 Questions
-            </Link>
-
-            {/* Bookmarks */}
-            <Link
-              className="nav-link px-3"
-              to="/bookmarks"
-            >
-              ⭐ Bookmarks
-            </Link>
-
-            {/* Dashboard */}
-            <Link
-              className="nav-link px-3"
-              to="/dashboard"
-            >
-              📊 Dashboard
-            </Link>
-
-            {/* Profile */}
-            <Link
-              className="nav-link px-3"
-              to="/profile"
-            >
-              👤 Profile
-            </Link>
-
-            {/* ===============================
-                ADMIN ONLY LINKS
-            =============================== */}
-            {isAdmin && (
+            {/* Only show authenticated links */}
+            {user && (
               <>
-                {/* Add Question */}
+                {/* Questions */}
                 <Link
-                  className="nav-link px-3 fw-bold text-info"
-                  to="/add-question"
+                  className="nav-link px-3"
+                  to="/questions"
                 >
-                  ➕ Add Question
+                  📚 Questions
                 </Link>
 
-                {/* Admin Panel */}
+                {/* Bookmarks */}
                 <Link
-                  className="nav-link px-3 fw-bold text-warning"
-                  to="/admin"
+                  className="nav-link px-3"
+                  to="/bookmarks"
                 >
-                  👨‍💼 Admin Panel
+                  ⭐ Bookmarks
+                </Link>
+
+                {/* Dashboard */}
+                <Link
+                  className="nav-link px-3"
+                  to="/dashboard"
+                >
+                  📊 Dashboard
+                </Link>
+
+                {/* Profile */}
+                <Link
+                  className="nav-link px-3"
+                  to="/profile"
+                >
+                  👤 Profile
+                </Link>
+
+                {/* ===============================
+                    ADMIN ONLY
+                =============================== */}
+                {isAdmin && (
+                  <>
+                    <Link
+                      className="nav-link px-3 fw-bold text-info"
+                      to="/add-question"
+                    >
+                      ➕ Add Question
+                    </Link>
+
+                    <Link
+                      className="nav-link px-3 fw-bold text-warning"
+                      to="/admin"
+                    >
+                      👨‍💼 Admin Panel
+                    </Link>
+                  </>
+                )}
+
+                {/* Logout */}
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-sm ms-lg-2 mt-2 mt-lg-0"
+                  onClick={handleLogout}
+                >
+                  🚪 Logout
+                </button>
+              </>
+            )}
+
+            {/* Login / Register */}
+            {!user && (
+              <>
+                <Link
+                  className="nav-link px-3"
+                  to="/login"
+                >
+                  🔐 Login
+                </Link>
+
+                <Link
+                  className="nav-link px-3"
+                  to="/register"
+                >
+                  📝 Register
                 </Link>
               </>
             )}
@@ -148,7 +248,7 @@ function Navbar() {
               type="button"
               className="btn btn-outline-light btn-sm ms-lg-2 mt-2 mt-lg-0"
               onClick={() =>
-                setDarkMode(!darkMode)
+                setDarkMode((prev) => !prev)
               }
             >
               {darkMode
@@ -158,7 +258,6 @@ function Navbar() {
 
           </div>
         </div>
-
       </div>
     </nav>
   );
