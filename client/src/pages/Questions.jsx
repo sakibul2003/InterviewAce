@@ -12,11 +12,9 @@ function Questions() {
   const [bookmarks, setBookmarks] = useState([]);
   const [completedQuestions, setCompletedQuestions] = useState([]);
 
-  // Loading states
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState("");
 
-  // Toast
   const [toast, setToast] = useState({
     message: "",
     type: "success",
@@ -24,17 +22,11 @@ function Questions() {
 
   const toastTimerRef = useRef(null);
 
-  // ===============================
-  // Logged-in User
-  // ===============================
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
 
   const isAdmin = user?.role === "admin";
 
-  // ===============================
-  // Toast Helper
-  // ===============================
   const showToast = (message, type = "success") => {
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
@@ -53,9 +45,6 @@ function Questions() {
     }, 3000);
   };
 
-  // ===============================
-  // Cleanup Toast Timer
-  // ===============================
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) {
@@ -64,23 +53,11 @@ function Questions() {
     };
   }, []);
 
-  // ===============================
-  // Initial Load
-  // ===============================
   useEffect(() => {
     fetchQuestions();
-
-    const savedBookmarks =
-      JSON.parse(localStorage.getItem("bookmarks")) || [];
-
-    setBookmarks(savedBookmarks);
-
-    fetchCompletedQuestions();
+    fetchUserProgress();
   }, []);
 
-  // ===============================
-  // Fetch Questions
-  // ===============================
   const fetchQuestions = async () => {
     try {
       setLoading(true);
@@ -101,13 +78,11 @@ function Questions() {
     }
   };
 
-  // ===============================
-  // Fetch Completed Questions
-  // ===============================
-  const fetchCompletedQuestions = async () => {
+  const fetchUserProgress = async () => {
     const token = localStorage.getItem("token");
 
     if (!token) {
+      setBookmarks([]);
       setCompletedQuestions([]);
       return;
     }
@@ -115,25 +90,30 @@ function Questions() {
     try {
       const res = await API.get("/users/profile");
 
-      const completed =
-        res.data.user?.completedQuestions || [];
+      const userData = res.data.user;
+
+      setBookmarks(
+        (userData?.bookmarks || []).map((id) =>
+          id.toString()
+        )
+      );
 
       setCompletedQuestions(
-        completed.map((id) => id.toString())
+        (userData?.completedQuestions || []).map(
+          (id) => id.toString()
+        )
       );
     } catch (error) {
       console.error(
-        "Fetch Completed Questions Error:",
+        "Fetch User Progress Error:",
         error
       );
 
+      setBookmarks([]);
       setCompletedQuestions([]);
     }
   };
 
-  // ===============================
-  // Toggle Completed Question
-  // ===============================
   const toggleCompletedQuestion = async (id) => {
     const token = localStorage.getItem("token");
 
@@ -198,9 +178,72 @@ function Questions() {
     }
   };
 
-  // ===============================
-  // Delete Question - Admin Only
-  // ===============================
+  const toggleBookmark = async (id) => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      showToast(
+        "Please login to bookmark questions.",
+        "warning"
+      );
+      return;
+    }
+
+    if (actionLoading === `bookmark-${id}`) {
+      return;
+    }
+
+    try {
+      setActionLoading(`bookmark-${id}`);
+
+      const res = await API.put(
+        "/users/bookmark",
+        {
+          questionId: id,
+        }
+      );
+
+      if (res.data.success) {
+        const updatedBookmarks =
+          res.data.bookmarks || [];
+
+        setBookmarks(
+          updatedBookmarks.map((item) =>
+            item.toString()
+          )
+        );
+
+        showToast(
+          res.data.message ||
+            "Bookmark updated successfully.",
+          res.data.bookmarked
+            ? "success"
+            : "info"
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Bookmark Error:",
+        error
+      );
+
+      if (error.response?.status === 401) {
+        showToast(
+          "Please login to bookmark questions.",
+          "warning"
+        );
+      } else {
+        showToast(
+          error.response?.data?.message ||
+            "Failed to update bookmark.",
+          "error"
+        );
+      }
+    } finally {
+      setActionLoading("");
+    }
+  };
+
   const deleteQuestion = async (id) => {
     if (!isAdmin) {
       showToast(
@@ -236,20 +279,10 @@ function Questions() {
           )
         );
 
-        // Remove from bookmarks
-        const updatedBookmarks =
-          bookmarks.filter(
-            (item) => item !== id
-          );
-
-        setBookmarks(updatedBookmarks);
-
-        localStorage.setItem(
-          "bookmarks",
-          JSON.stringify(updatedBookmarks)
+        setBookmarks((prev) =>
+          prev.filter((item) => item !== id)
         );
 
-        // Remove from completed questions
         setCompletedQuestions((prev) =>
           prev.filter((item) => item !== id)
         );
@@ -289,53 +322,12 @@ function Questions() {
     }
   };
 
-  // ===============================
-  // Reset Filters
-  // ===============================
   const resetFilters = () => {
     setSearch("");
     setCategory("All");
     setDifficulty("All");
   };
 
-  // ===============================
-  // Bookmark Question
-  // ===============================
-  const toggleBookmark = (id) => {
-    let updatedBookmarks;
-
-    if (bookmarks.includes(id)) {
-      updatedBookmarks = bookmarks.filter(
-        (item) => item !== id
-      );
-
-      showToast(
-        "Question removed from bookmarks.",
-        "info"
-      );
-    } else {
-      updatedBookmarks = [
-        ...bookmarks,
-        id,
-      ];
-
-      showToast(
-        "Question bookmarked successfully.",
-        "success"
-      );
-    }
-
-    setBookmarks(updatedBookmarks);
-
-    localStorage.setItem(
-      "bookmarks",
-      JSON.stringify(updatedBookmarks)
-    );
-  };
-
-  // ===============================
-  // Filter Questions
-  // ===============================
   const filteredQuestions =
     questions.filter((question) => {
       const title =
@@ -359,14 +351,8 @@ function Questions() {
       );
     });
 
-  // ===============================
-  // UI
-  // ===============================
   return (
     <div>
-      {/* ===============================
-          Toast
-      =============================== */}
       <Toast
         message={toast.message}
         type={toast.type}
@@ -382,9 +368,6 @@ function Questions() {
         }}
       />
 
-      {/* ===============================
-          Header
-      =============================== */}
       <div className="text-center mb-5">
         <span className="badge bg-primary-subtle text-primary px-3 py-2 mb-3">
           🎯 Interview Preparation
@@ -400,14 +383,9 @@ function Questions() {
         </p>
       </div>
 
-      {/* ===============================
-          Search & Filters
-      =============================== */}
       <div className="card shadow-sm border-0 mb-5">
         <div className="card-body p-4">
           <div className="row g-3 align-items-end">
-
-            {/* Search */}
             <div className="col-lg-5">
               <label className="form-label fw-semibold">
                 Search Questions
@@ -424,7 +402,6 @@ function Questions() {
               />
             </div>
 
-            {/* Category */}
             <div className="col-md-6 col-lg-2">
               <label className="form-label fw-semibold">
                 Category
@@ -440,7 +417,6 @@ function Questions() {
                 <option value="All">
                   All Categories
                 </option>
-
                 <option value="DSA">DSA</option>
                 <option value="DBMS">DBMS</option>
                 <option value="OOP">OOP</option>
@@ -450,7 +426,6 @@ function Questions() {
               </select>
             </div>
 
-            {/* Difficulty */}
             <div className="col-md-6 col-lg-2">
               <label className="form-label fw-semibold">
                 Difficulty
@@ -466,22 +441,18 @@ function Questions() {
                 <option value="All">
                   All Levels
                 </option>
-
                 <option value="Easy">
                   Easy
                 </option>
-
                 <option value="Medium">
                   Medium
                 </option>
-
                 <option value="Hard">
                   Hard
                 </option>
               </select>
             </div>
 
-            {/* Reset */}
             <div className="col-lg-3">
               <button
                 className="btn btn-outline-secondary w-100"
@@ -490,17 +461,12 @@ function Questions() {
                 🔄 Reset Filters
               </button>
             </div>
-
           </div>
         </div>
       </div>
 
-      {/* ===============================
-          Results Summary
-      =============================== */}
       {!loading && (
         <div className="d-flex flex-wrap justify-content-between align-items-center mb-4">
-
           <div>
             <h5 className="fw-bold mb-1">
               Available Questions
@@ -520,7 +486,6 @@ function Questions() {
           </div>
 
           <div className="d-flex flex-wrap gap-2 mt-2 mt-md-0">
-
             <span className="badge bg-dark px-3 py-2">
               ⭐ {bookmarks.length} Bookmarked
             </span>
@@ -528,18 +493,13 @@ function Questions() {
             <span className="badge bg-success px-3 py-2">
               ✅ {completedQuestions.length} Completed
             </span>
-
           </div>
         </div>
       )}
 
-      {/* ===============================
-          Loading
-      =============================== */}
       {loading ? (
         <div className="card shadow-sm border-0">
           <div className="card-body text-center py-5">
-
             <div
               className="spinner-border text-primary mb-3"
               role="status"
@@ -557,17 +517,11 @@ function Questions() {
               Please wait while we load the
               interview questions.
             </p>
-
           </div>
         </div>
       ) : filteredQuestions.length === 0 ? (
-
-        /* ===============================
-            No Questions
-        =============================== */
         <div className="card shadow-sm border-0">
           <div className="card-body text-center py-5">
-
             <div className="display-4 mb-3">
               🔎
             </div>
@@ -586,17 +540,10 @@ function Questions() {
             >
               Reset Filters
             </button>
-
           </div>
         </div>
-
       ) : (
-
-        /* ===============================
-            Questions
-        =============================== */
         <div className="row g-4">
-
           {filteredQuestions.map((question) => {
             const isCompleted =
               completedQuestions.includes(
@@ -611,6 +558,10 @@ function Questions() {
             const completing =
               actionLoading ===
               `complete-${question._id}`;
+
+            const bookmarking =
+              actionLoading ===
+              `bookmark-${question._id}`;
 
             const deleting =
               actionLoading ===
@@ -629,16 +580,11 @@ function Questions() {
                   }`}
                 >
                   <div className="card-body p-4">
-
-                    {/* Question Header */}
                     <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3">
-
                       <div>
                         <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
-
                           <span className="badge bg-light text-dark border">
-                            #
-                            {question._id.slice(-4)}
+                            #{question._id.slice(-4)}
                           </span>
 
                           <span className="badge bg-primary">
@@ -664,7 +610,6 @@ function Questions() {
                               ✅ Completed
                             </span>
                           )}
-
                         </div>
 
                         <h4 className="fw-bold mb-0">
@@ -675,12 +620,10 @@ function Questions() {
                       <small className="text-muted">
                         Interview Question
                       </small>
-
                     </div>
 
                     <hr />
 
-                    {/* Answer */}
                     <div className="bg-light rounded p-4">
                       <h6 className="fw-bold text-dark mb-2">
                         💡 Answer
@@ -691,12 +634,8 @@ function Questions() {
                       </p>
                     </div>
 
-                    {/* Actions */}
                     <div className="question-actions d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mt-4">
-
-                      {/* User Actions */}
                       <div className="d-flex flex-column flex-sm-row gap-2">
-
                         <button
                           className={`btn ${
                             isCompleted
@@ -710,6 +649,7 @@ function Questions() {
                           }
                           disabled={
                             completing ||
+                            bookmarking ||
                             deleting
                           }
                         >
@@ -742,20 +682,29 @@ function Questions() {
                           }
                           disabled={
                             completing ||
+                            bookmarking ||
                             deleting
                           }
                         >
-                          {isBookmarked
-                            ? "✅ Bookmarked"
-                            : "⭐ Bookmark"}
+                          {bookmarking ? (
+                            <>
+                              <span
+                                className="spinner-border spinner-border-sm me-2"
+                                role="status"
+                                aria-hidden="true"
+                              ></span>
+                              Updating...
+                            </>
+                          ) : isBookmarked ? (
+                            "✅ Bookmarked"
+                          ) : (
+                            "⭐ Bookmark"
+                          )}
                         </button>
-
                       </div>
 
-                      {/* Admin Actions */}
                       {isAdmin && (
                         <div className="d-flex flex-column flex-sm-row gap-2">
-
                           <Link
                             to={`/edit-question/${question._id}`}
                             className={`btn btn-warning ${
@@ -776,7 +725,8 @@ function Questions() {
                             }
                             disabled={
                               deleting ||
-                              completing
+                              completing ||
+                              bookmarking
                             }
                           >
                             {deleting ? (
@@ -792,17 +742,14 @@ function Questions() {
                               "🗑 Delete"
                             )}
                           </button>
-
                         </div>
                       )}
-
                     </div>
                   </div>
                 </div>
               </div>
             );
           })}
-
         </div>
       )}
     </div>

@@ -23,21 +23,25 @@ const userSchema = new mongoose.Schema(
       minlength: 6,
     },
 
-    // ===============================
-    // User Role
-    // ===============================
     role: {
       type: String,
       enum: ["user", "admin"],
       default: "user",
     },
 
+    bookmarks: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Question",
+      },
+    ],
+
     completedQuestions: [
-  {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Question",
-  },
-],
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Question",
+      },
+    ],
   },
   {
     timestamps: true,

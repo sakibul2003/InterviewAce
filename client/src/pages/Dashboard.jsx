@@ -5,22 +5,23 @@ import API from "../services/api";
 function Dashboard() {
   const navigate = useNavigate();
 
-  const storedUser = localStorage.getItem("user");
-
-  let user = null;
-
-  try {
-    user = storedUser ? JSON.parse(storedUser) : null;
-  } catch (error) {
-    console.error("Invalid user data:", error);
-  }
-
+  const [user, setUser] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [bookmarkedCount, setBookmarkedCount] = useState(0);
   const [completedQuestions, setCompletedQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        console.error("Invalid user data:", error);
+      }
+    }
+
     fetchDashboardData();
   }, []);
 
@@ -28,18 +29,26 @@ function Dashboard() {
     try {
       setLoading(true);
 
-      const questionRes = await API.get("/questions");
-      setQuestions(questionRes.data?.questions || []);
+      const [questionRes, profileRes] = await Promise.all([
+        API.get("/questions"),
+        API.get("/users/profile"),
+      ]);
 
-      const savedBookmarks =
-        JSON.parse(localStorage.getItem("bookmarks")) || [];
+      const allQuestions =
+        questionRes.data?.questions || [];
 
-      setBookmarkedCount(savedBookmarks.length);
+      const userData =
+        profileRes.data?.user;
 
-      const profileRes = await API.get("/users/profile");
+      setQuestions(allQuestions);
+
+      const bookmarks =
+        userData?.bookmarks || [];
 
       const completed =
-        profileRes.data?.user?.completedQuestions || [];
+        userData?.completedQuestions || [];
+
+      setBookmarkedCount(bookmarks.length);
 
       setCompletedQuestions(
         completed.map((id) => id.toString())
@@ -51,7 +60,10 @@ function Dashboard() {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
 
-        window.dispatchEvent(new Event("authChanged"));
+        window.dispatchEvent(
+          new Event("authChanged")
+        );
+
         navigate("/login");
       }
     } finally {
@@ -60,7 +72,9 @@ function Dashboard() {
   };
 
   const totalQuestions = questions.length;
-  const completedCount = completedQuestions.length;
+
+  const completedCount =
+    completedQuestions.length;
 
   const remainingQuestions = Math.max(
     totalQuestions - completedCount,
@@ -69,19 +83,27 @@ function Dashboard() {
 
   const progressPercentage =
     totalQuestions > 0
-      ? Math.round((completedCount / totalQuestions) * 100)
+      ? Math.min(
+          Math.round(
+            (completedCount / totalQuestions) * 100
+          ),
+          100
+        )
       : 0;
 
   const easyQuestions = questions.filter(
-    (question) => question.difficulty === "Easy"
+    (question) =>
+      question.difficulty === "Easy"
   ).length;
 
   const mediumQuestions = questions.filter(
-    (question) => question.difficulty === "Medium"
+    (question) =>
+      question.difficulty === "Medium"
   ).length;
 
   const hardQuestions = questions.filter(
-    (question) => question.difficulty === "Hard"
+    (question) =>
+      question.difficulty === "Hard"
   ).length;
 
   if (loading) {
@@ -89,11 +111,18 @@ function Dashboard() {
       <div className="container py-5">
         <div className="card shadow-sm border-0">
           <div className="card-body text-center py-5">
-            <div className="spinner-border text-primary mb-3">
-              <span className="visually-hidden">Loading...</span>
+            <div
+              className="spinner-border text-primary mb-3"
+              role="status"
+            >
+              <span className="visually-hidden">
+                Loading...
+              </span>
             </div>
 
-            <h5 className="fw-bold">Loading Dashboard</h5>
+            <h5 className="fw-bold">
+              Loading Dashboard
+            </h5>
 
             <p className="text-muted mb-0">
               Fetching your preparation progress...
@@ -107,8 +136,10 @@ function Dashboard() {
   return (
     <div className="container py-4">
 
+      {/* Welcome Section */}
       <div className="card shadow-lg border-0 p-4 p-md-5 mb-5">
         <div className="row align-items-center">
+
           <div className="col-lg-8 text-center text-lg-start">
             <span className="badge bg-primary-subtle text-primary px-3 py-2 mb-3">
               📊 Personal Dashboard
@@ -123,7 +154,8 @@ function Dashboard() {
             </h1>
 
             <p className="text-muted fs-5 mb-1">
-              Continue your interview preparation journey.
+              Continue your interview preparation
+              journey.
             </p>
 
             {user?.email && (
@@ -145,19 +177,24 @@ function Dashboard() {
               👤
             </div>
           </div>
+
         </div>
       </div>
 
+      {/* Progress Section */}
       <div className="card shadow-sm border-0 mb-5">
         <div className="card-body p-4 p-md-5">
+
           <div className="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+
             <div>
               <h3 className="fw-bold mb-1">
                 🎯 Preparation Progress
               </h3>
 
               <p className="text-muted mb-0">
-                Track how much of the question library you have completed.
+                Track how much of the question
+                library you have completed.
               </p>
             </div>
 
@@ -166,15 +203,23 @@ function Dashboard() {
                 {progressPercentage}%
               </h2>
 
-              <small className="text-muted">Completed</small>
+              <small className="text-muted">
+                Completed
+              </small>
             </div>
+
           </div>
 
-          <div className="progress" style={{ height: "14px" }}>
+          <div
+            className="progress"
+            style={{ height: "14px" }}
+          >
             <div
               className="progress-bar bg-primary"
               role="progressbar"
-              style={{ width: `${progressPercentage}%` }}
+              style={{
+                width: `${progressPercentage}%`,
+              }}
               aria-valuenow={progressPercentage}
               aria-valuemin="0"
               aria-valuemax="100"
@@ -184,6 +229,7 @@ function Dashboard() {
           </div>
 
           <div className="d-flex justify-content-between mt-3">
+
             <small className="text-muted">
               ✅ {completedCount} completed
             </small>
@@ -191,32 +237,45 @@ function Dashboard() {
             <small className="text-muted">
               ⏳ {remainingQuestions} remaining
             </small>
+
           </div>
+
         </div>
       </div>
 
+      {/* Overview */}
       <div className="mb-4">
-        <h2 className="fw-bold">📈 Preparation Overview</h2>
+        <h2 className="fw-bold">
+          📈 Preparation Overview
+        </h2>
 
         <p className="text-muted">
-          Monitor your InterviewAce activity and progress.
+          Monitor your InterviewAce activity and
+          progress.
         </p>
       </div>
 
       <div className="row g-4">
 
+        {/* Total Questions */}
         <div className="col-sm-6 col-xl-3">
           <div className="card shadow-sm border-0 h-100 p-4">
             <div className="d-flex justify-content-between align-items-start">
+
               <div>
-                <p className="text-muted mb-1">Total Questions</p>
+                <p className="text-muted mb-1">
+                  Total Questions
+                </p>
 
                 <h2 className="fw-bold mb-0">
                   {totalQuestions}
                 </h2>
               </div>
 
-              <div className="fs-1">📚</div>
+              <div className="fs-1">
+                📚
+              </div>
+
             </div>
 
             <small className="text-primary fw-semibold mt-3 d-block">
@@ -225,18 +284,25 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* Completed */}
         <div className="col-sm-6 col-xl-3">
           <div className="card shadow-sm border-0 h-100 p-4">
             <div className="d-flex justify-content-between align-items-start">
+
               <div>
-                <p className="text-muted mb-1">Completed</p>
+                <p className="text-muted mb-1">
+                  Completed
+                </p>
 
                 <h2 className="fw-bold text-success mb-0">
                   {completedCount}
                 </h2>
               </div>
 
-              <div className="fs-1">✅</div>
+              <div className="fs-1">
+                ✅
+              </div>
+
             </div>
 
             <small className="text-success fw-semibold mt-3 d-block">
@@ -245,18 +311,25 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* Remaining */}
         <div className="col-sm-6 col-xl-3">
           <div className="card shadow-sm border-0 h-100 p-4">
             <div className="d-flex justify-content-between align-items-start">
+
               <div>
-                <p className="text-muted mb-1">Remaining</p>
+                <p className="text-muted mb-1">
+                  Remaining
+                </p>
 
                 <h2 className="fw-bold text-warning mb-0">
                   {remainingQuestions}
                 </h2>
               </div>
 
-              <div className="fs-1">⏳</div>
+              <div className="fs-1">
+                ⏳
+              </div>
+
             </div>
 
             <small className="text-warning fw-semibold mt-3 d-block">
@@ -265,18 +338,25 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* Bookmarked */}
         <div className="col-sm-6 col-xl-3">
           <div className="card shadow-sm border-0 h-100 p-4">
             <div className="d-flex justify-content-between align-items-start">
+
               <div>
-                <p className="text-muted mb-1">Bookmarked</p>
+                <p className="text-muted mb-1">
+                  Bookmarked
+                </p>
 
                 <h2 className="fw-bold mb-0">
                   {bookmarkedCount}
                 </h2>
               </div>
 
-              <div className="fs-1">⭐</div>
+              <div className="fs-1">
+                ⭐
+              </div>
+
             </div>
 
             <small className="text-warning fw-semibold mt-3 d-block">
@@ -287,6 +367,7 @@ function Dashboard() {
 
       </div>
 
+      {/* Difficulty */}
       <div className="card shadow-sm border-0 mt-5">
         <div className="card-body p-4 p-md-5">
 
@@ -295,14 +376,18 @@ function Dashboard() {
           </h4>
 
           <p className="text-muted mb-4">
-            Distribution of your available interview questions.
+            Distribution of your available
+            interview questions.
           </p>
 
           <div className="row g-4">
 
             <div className="col-md-4">
               <div className="border rounded-4 p-4 text-center h-100">
-                <div className="fs-2 mb-2">🟢</div>
+
+                <div className="fs-2 mb-2">
+                  🟢
+                </div>
 
                 <h3 className="fw-bold text-success">
                   {easyQuestions}
@@ -311,12 +396,16 @@ function Dashboard() {
                 <p className="mb-0 text-muted">
                   Easy Questions
                 </p>
+
               </div>
             </div>
 
             <div className="col-md-4">
               <div className="border rounded-4 p-4 text-center h-100">
-                <div className="fs-2 mb-2">🟡</div>
+
+                <div className="fs-2 mb-2">
+                  🟡
+                </div>
 
                 <h3 className="fw-bold text-warning">
                   {mediumQuestions}
@@ -325,12 +414,16 @@ function Dashboard() {
                 <p className="mb-0 text-muted">
                   Medium Questions
                 </p>
+
               </div>
             </div>
 
             <div className="col-md-4">
               <div className="border rounded-4 p-4 text-center h-100">
-                <div className="fs-2 mb-2">🔴</div>
+
+                <div className="fs-2 mb-2">
+                  🔴
+                </div>
 
                 <h3 className="fw-bold text-danger">
                   {hardQuestions}
@@ -339,13 +432,16 @@ function Dashboard() {
                 <p className="mb-0 text-muted">
                   Hard Questions
                 </p>
+
               </div>
             </div>
 
           </div>
+
         </div>
       </div>
 
+      {/* Quick Actions */}
       <div className="card shadow-sm border-0 mt-5">
         <div className="card-body p-4 p-md-5">
 
@@ -362,7 +458,9 @@ function Dashboard() {
             <div className="col-md-4">
               <button
                 className="btn btn-primary w-100 py-3"
-                onClick={() => navigate("/questions")}
+                onClick={() =>
+                  navigate("/questions")
+                }
               >
                 📚 Browse Questions
               </button>
@@ -371,7 +469,9 @@ function Dashboard() {
             <div className="col-md-4">
               <button
                 className="btn btn-warning w-100 py-3"
-                onClick={() => navigate("/bookmarks")}
+                onClick={() =>
+                  navigate("/bookmarks")
+                }
               >
                 ⭐ View Bookmarks
               </button>
@@ -381,7 +481,9 @@ function Dashboard() {
               <div className="col-md-4">
                 <button
                   className="btn btn-success w-100 py-3"
-                  onClick={() => navigate("/add-question")}
+                  onClick={() =>
+                    navigate("/add-question")
+                  }
                 >
                   ➕ Add Question
                 </button>
@@ -389,21 +491,27 @@ function Dashboard() {
             )}
 
           </div>
+
         </div>
       </div>
 
+      {/* Motivation */}
       <div className="card border-0 shadow-sm mt-5 bg-primary text-white">
         <div className="card-body p-4 p-md-5 text-center">
 
-          <div className="fs-1 mb-2">💡</div>
+          <div className="fs-1 mb-2">
+            💡
+          </div>
 
           <h3 className="fw-bold">
             Keep Practicing!
           </h3>
 
           <p className="mb-0">
-            Consistent practice is the key to becoming interview-ready.
-            Challenge yourself with different topics and difficulty levels.
+            Consistent practice is the key to
+            becoming interview-ready. Challenge
+            yourself with different topics and
+            difficulty levels.
           </p>
 
         </div>
