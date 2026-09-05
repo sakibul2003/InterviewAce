@@ -20,6 +20,7 @@ const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const questionRoutes = require("./routes/questionRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const interviewRoutes = require("./routes/interviewRoutes");
 
 // ===============================
 // App Initialization
@@ -39,6 +40,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/questions", questionRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/interviews", interviewRoutes);
 
 // ===============================
 // Health Check
