@@ -22,8 +22,7 @@ const startInterview = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "Question count must be between 1 and 20",
+        message: "Question count must be between 1 and 20",
       });
     }
 
@@ -44,55 +43,40 @@ const startInterview = async (req, res) => {
     if (availableQuestions.length === 0) {
       return res.status(404).json({
         success: false,
-        message:
-          "No questions found for the selected criteria",
+        message: "No questions found for the selected criteria",
       });
     }
 
     // Shuffle questions randomly
-    const shuffledQuestions =
-      availableQuestions.sort(
-        () => Math.random() - 0.5
-      );
+    const shuffledQuestions = availableQuestions.sort(
+      () => Math.random() - 0.5
+    );
 
-    // Select available number of questions
-    const selectedQuestions =
-      shuffledQuestions.slice(
-        0,
-        Math.min(
-          parsedQuestionCount,
-          shuffledQuestions.length
-        )
-      );
+    // Select requested number of questions
+    const selectedQuestions = shuffledQuestions.slice(
+      0,
+      Math.min(parsedQuestionCount, shuffledQuestions.length)
+    );
 
     // Create interview session
-    const interviewSession =
-      await InterviewSession.create({
-        user: req.user._id,
-
-        questions: selectedQuestions.map(
-          (question) => question._id
-        ),
-
-        category,
-        difficulty,
-
-        totalQuestions:
-          selectedQuestions.length,
-      });
+    const interviewSession = await InterviewSession.create({
+      user: req.user._id,
+      questions: selectedQuestions.map(
+        (question) => question._id
+      ),
+      category,
+      difficulty,
+      totalQuestions: selectedQuestions.length,
+    });
 
     res.status(201).json({
       success: true,
-      message:
-        "Mock interview started successfully",
+      message: "Mock interview started successfully",
       session: interviewSession,
       questions: selectedQuestions,
     });
   } catch (error) {
-    console.error(
-      "Start Interview Error:",
-      error
-    );
+    console.error("Start Interview Error:", error);
 
     res.status(500).json({
       success: false,
@@ -101,6 +85,38 @@ const startInterview = async (req, res) => {
   }
 };
 
+// =====================================
+// Get Interview History
+// =====================================
+const getInterviewHistory = async (req, res) => {
+  try {
+    const sessions = await InterviewSession.find({
+      user: req.user._id,
+    })
+      .sort({ createdAt: -1 })
+      .select(
+        "category difficulty totalQuestions completedQuestions score duration status startedAt completedAt createdAt"
+      );
+
+    res.status(200).json({
+      success: true,
+      count: sessions.length,
+      sessions,
+    });
+  } catch (error) {
+    console.error("Get Interview History Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// =====================================
+// Export Controllers
+// =====================================
 module.exports = {
   startInterview,
+  getInterviewHistory,
 };
